@@ -10,10 +10,11 @@ export default function AdminEmployees() {
         loadEmployees();
     }, []);
 
-    const loadEmployees = () => {
+    const loadEmployees = async () => {
         // 从库存记录中提取员工
         const empMap = {};
-        store.inventory.forEach(item => {
+        const inventory = await store.getInventory() || [];
+        inventory.forEach(item => {
             const emp = item.createdBy || 'unknown';
             if (!empMap[emp]) {
                 empMap[emp] = {
