@@ -71,29 +71,37 @@ export default function ScanBarcode() {
       setScanStatus("Iniciando cámara...");
       setIsScanning(true);
 
-      // 只支持最常用格式，加快识别速度
+      // 支持所有常用条形码格式
       const formatsToSupport = [
         Html5QrcodeSupportedFormats.EAN_13,
         Html5QrcodeSupportedFormats.EAN_8,
         Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
         Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.ITF,
         Html5QrcodeSupportedFormats.QR_CODE
       ];
 
       const html5QrCode = new Html5Qrcode("barcode-scanner", {
         formatsToSupport: formatsToSupport,
-        verbose: false
+        verbose: true // 开启详细日志方便调试
       });
       scannerRef.current = html5QrCode;
 
-      // 超高速扫描配置
+      // 优化扫描配置 - 更大扫描区域
       const config = {
-        fps: 30, // 最高帧率
-        qrbox: { width: 350, height: 180 }, // 宽矩形更适合条形码
-        aspectRatio: 2.0,
-        experimentalFeatures: {
-          useBarCodeDetectorIfSupported: true // 使用原生API如支持
-        }
+        fps: 10, // 降低帧率提高稳定性
+        qrbox: function (viewfinderWidth, viewfinderHeight) {
+          // 动态计算扫描区域 - 占视图的80%宽度
+          const minEdgePercentage = 0.8;
+          const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+          const qrboxWidth = Math.floor(viewfinderWidth * minEdgePercentage);
+          const qrboxHeight = Math.floor(minEdgeSize * 0.4); // 适合条形码的高度
+          return { width: qrboxWidth, height: qrboxHeight };
+        },
+        aspectRatio: 1.777778, // 16:9
+        formatsToSupport: formatsToSupport
       };
 
       await html5QrCode.start(
@@ -101,13 +109,16 @@ export default function ScanBarcode() {
         config,
         async (decodedText, decodedResult) => {
           console.log("✅ Scanned:", decodedText);
+          console.log("Format:", decodedResult.result.format?.formatName);
           setBarcode(decodedText);
           setScanStatus(`¡Escaneado! ${decodedResult.result.format?.formatName || ''}`);
           stopScanner();
-          // 检查重复
           await checkDuplicate(decodedText);
         },
-        () => { }
+        (errorMessage) => {
+          // 显示扫描尝试状态
+          console.log("Scanning...", errorMessage?.substring(0, 50));
+        }
       );
 
       setScanStatus("Apunte la cámara al código de barras");
