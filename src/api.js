@@ -14,8 +14,11 @@ export function generateBarcode() {
 }
 
 // 使用 Google Gemini AI 分析产品图片
-export async function analyzeImage(imageBase64) {
-  console.log("🤖 Starting Gemini AI analysis...");
+export async function analyzeImage(imageBase64, retryCount = 0) {
+  const MAX_RETRIES = 3;
+  const RETRY_DELAYS = [2000, 5000, 10000]; // 2s, 5s, 10s
+
+  console.log(`🤖 Starting Gemini AI analysis... (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
 
   try {
     // 移除 data:image/... 前缀
@@ -100,10 +103,21 @@ Si no puedes identificar el producto, usa valores genéricos razonables.`
   } catch (error) {
     console.error("❌ Gemini AI Error:", error);
     console.error("Error details:", error.message);
+
+    // 检查是否为 429 配额错误，如果是则重试
+    if (error.message?.includes('429') && retryCount < MAX_RETRIES) {
+      const delay = RETRY_DELAYS[retryCount];
+      console.log(`⏳ Rate limited. Waiting ${delay / 1000}s before retry...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return analyzeImage(imageBase64, retryCount + 1);
+    }
+
     // 返回后备数据但标记为失败
     return {
       name: "Producto (análisis fallido)",
-      description: `Error: ${error.message}. Por favor edite manualmente.`,
+      description: error.message?.includes('429')
+        ? "API límite alcanzado. Espere 1-2 minutos e intente de nuevo."
+        : `Error: ${error.message}. Por favor edite manualmente.`,
       category: "Otros",
       originalPrice: 100,
       discountPrice: 70,
