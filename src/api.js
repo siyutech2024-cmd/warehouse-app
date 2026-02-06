@@ -28,7 +28,20 @@ export async function analyzeImage(imageBase64) {
     discountPrice: Math.round(basePrice * 0.7),
     stock: Math.floor(Math.random() * 50) + 1
   };
+export const analyzeProductImage = analyzeImage;
+
+
+export async function analyzeBarcode(barcode) {
+    await new Promise(resolve => setTimeout(resolve, 800));
+    const product = mockProducts.find(p => p.name.includes('MacBook')) || mockProducts[0];
+    return {
+          ...product,
+          barcode: barcode,
+          price: Math.floor(Math.random() * 900) + 100,
+          stock: Math.floor(Math.random() * 50) + 1
+    };
 }
+
 
 export async function createProduct(data) {
   store.setProduct(data);
