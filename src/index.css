@@ -1004,6 +1004,33 @@ body {
   cursor: not-allowed;
 }
 
+/* 价格编辑样式 */
+.price-input {
+  width: 70px;
+  padding: var(--space-xs) var(--space-sm);
+  border: 2px solid var(--primary);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+}
+
+.price-edit-group {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.price-display.clickable,
+.stock-value.clickable {
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.price-display.clickable:hover {
+  background: var(--gray-100);
+  border-radius: var(--radius-sm);
+}
+
 /* ===== 员工管理 ===== */
 .employee-name {
   display: flex;

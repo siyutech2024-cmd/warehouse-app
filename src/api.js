@@ -170,6 +170,10 @@ export async function deleteProducts(ids) {
   return await store.deleteProducts(ids);
 }
 
+export async function updateProductPrice(id, originalPrice, discountPrice) {
+  return await store.updatePrice(id, originalPrice, discountPrice);
+}
+
 // 导出 Excel - 支持筛选条件
 export function exportExcel(data, filters = {}) {
   let filteredData = [...data];

@@ -65,11 +65,12 @@ export default function ScanBarcode() {
 
       console.log("📷 Starting barcode scanner...");
 
-      // 配置扫描参数
+      // 配置扫描参数 - 高速扫描
       const config = {
-        fps: 10,
-        qrbox: isMobile ? { width: 280, height: 180 } : { width: 300, height: 200 },
-        aspectRatio: 1.777778 // 16:9
+        fps: 15, // 提高帧率加快扫描
+        qrbox: isMobile ? { width: 300, height: 200 } : { width: 350, height: 250 },
+        aspectRatio: 1.5, // 更宽的视野
+        disableFlip: false
       };
 
       await html5QrCode.start(

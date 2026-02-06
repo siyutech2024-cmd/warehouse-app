@@ -131,22 +131,28 @@ export const i18n = {
 
     // 库存管理
     adminInventory: {
-        title: "📦 Gestión de Inventario",
+        title: "Gestión de Inventario",
         subtitle: "Administrar todos los productos del almacén",
-        totalProducts: "Total",
-        totalStock: "Stock",
-        lowStock: "Stock Bajo",
-        selectAll: "Seleccionar todo",
-        deleteSelected: "🗑️ Eliminar seleccionados",
-        exportFiltered: "📥 Exportar con Filtros",
-        product: "Producto",
-        category: "Categoría",
-        barcodeCol: "Código de Barras",
+        productTypes: "Tipos",
+        totalStock: "Stock Total",
+        totalValue: "Valor Total",
+        searchPlaceholder: "Buscar producto, código, creador...",
+        allCategories: "Todas las categorías",
+        delete: "Eliminar",
+        exportExcel: "Exportar Excel",
+        loading: "Cargando...",
+        noData: "Sin datos",
+        image: "Imagen",
+        productName: "Producto",
+        barcode: "Código",
         price: "Precio",
-        stockCol: "Stock",
-        creator: "Creador",
-        date: "Fecha",
-        actions: "Acciones"
+        stock: "Stock",
+        createdBy: "Creador",
+        createdAt: "Fecha",
+        actions: "Acciones",
+        clickToEdit: "Clic para editar",
+        editPrice: "Editar precio",
+        editStock: "Editar stock"
     },
 
     // 导出筛选

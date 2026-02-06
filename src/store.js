@@ -161,7 +161,20 @@ const supabaseStore = {
         .from('products')
         .delete()
         .in('id', ids);
-      if (error) console.error('删除商品失败:', error);
+      if (error) console.error('Error al eliminar:', error);
+    }
+  },
+
+  async updatePrice(id, originalPrice, discountPrice) {
+    if (isSupabaseEnabled) {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          original_price: originalPrice,
+          discount_price: discountPrice
+        })
+        .eq('id', id);
+      if (error) console.error('Error al actualizar precio:', error);
     }
   }
 };
@@ -221,6 +234,15 @@ const localStore = {
   deleteProducts(ids) {
     this.inventory = this.inventory.filter(item => !ids.includes(item.id));
     saveToStorage({ product: this.product, inventory: this.inventory, currentUser: this.currentUser });
+  },
+
+  updatePrice(id, originalPrice, discountPrice) {
+    const idx = this.inventory.findIndex(item => item.id === id);
+    if (idx !== -1) {
+      this.inventory[idx].originalPrice = parseFloat(originalPrice) || 0;
+      this.inventory[idx].discountPrice = parseFloat(discountPrice) || 0;
+      saveToStorage({ product: this.product, inventory: this.inventory, currentUser: this.currentUser });
+    }
   }
 };
 

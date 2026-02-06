@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { fetchInventory, exportExcel, updateProductStock, deleteProducts } from "../api";
+import { fetchInventory, exportExcel, updateProductStock, deleteProducts, updateProductPrice } from "../api";
+import i18n from "../i18n";
+
+const t = i18n.adminInventory;
 
 export default function AdminInventory() {
     const [list, setList] = useState([]);
@@ -9,7 +12,8 @@ export default function AdminInventory() {
     const [sortOrder, setSortOrder] = useState("desc");
     const [isLoading, setIsLoading] = useState(true);
     const [selectedItems, setSelectedItems] = useState([]);
-    const [editingItem, setEditingItem] = useState(null);
+    const [editingStock, setEditingStock] = useState(null);
+    const [editingPrice, setEditingPrice] = useState(null);
 
     useEffect(() => {
         loadInventory();
@@ -25,7 +29,6 @@ export default function AdminInventory() {
         }
     };
 
-    // 过滤和排序
     const filteredList = list
         .filter(item => {
             const matchSearch =
@@ -38,7 +41,7 @@ export default function AdminInventory() {
         .sort((a, b) => {
             let aVal = a[sortBy] || '';
             let bVal = b[sortBy] || '';
-            if (sortBy === 'discountPrice' || sortBy === 'stock') {
+            if (sortBy === 'discountPrice' || sortBy === 'stock' || sortBy === 'originalPrice') {
                 aVal = Number(aVal) || 0;
                 bVal = Number(bVal) || 0;
             }
@@ -69,7 +72,7 @@ export default function AdminInventory() {
 
     const deleteSelected = async () => {
         if (selectedItems.length === 0) return;
-        if (!confirm(`确定删除 ${selectedItems.length} 件商品？`)) return;
+        if (!confirm(`¿Eliminar ${selectedItems.length} productos?`)) return;
 
         await deleteProducts(selectedItems);
         setSelectedItems([]);
@@ -88,39 +91,43 @@ export default function AdminInventory() {
     const updateStock = async (id, newStock) => {
         await updateProductStock(id, parseInt(newStock) || 0);
         loadInventory();
-        setEditingItem(null);
+        setEditingStock(null);
+    };
+
+    const updatePrice = async (id, originalPrice, discountPrice) => {
+        await updateProductPrice(id, parseFloat(originalPrice) || 0, parseFloat(discountPrice) || 0);
+        loadInventory();
+        setEditingPrice(null);
     };
 
     return (
         <div className="admin-page">
             <div className="admin-header">
-                <h1 className="admin-title">📦 库存管理</h1>
-                <p className="admin-subtitle">管理所有入库商品</p>
+                <h1 className="admin-title">📦 {t.title}</h1>
+                <p className="admin-subtitle">{t.subtitle}</p>
             </div>
 
-            {/* 统计 */}
             <div className="stats-row">
                 <div className="stat-mini">
                     <span className="stat-mini-value">{filteredList.length}</span>
-                    <span className="stat-mini-label">商品种类</span>
+                    <span className="stat-mini-label">{t.productTypes}</span>
                 </div>
                 <div className="stat-mini">
                     <span className="stat-mini-value">{totalStock.toLocaleString()}</span>
-                    <span className="stat-mini-label">总库存</span>
+                    <span className="stat-mini-label">{t.totalStock}</span>
                 </div>
                 <div className="stat-mini">
                     <span className="stat-mini-value">MXN ${totalValue.toLocaleString()}</span>
-                    <span className="stat-mini-label">Valor Total</span>
+                    <span className="stat-mini-label">{t.totalValue}</span>
                 </div>
             </div>
 
-            {/* 工具栏 */}
             <div className="admin-toolbar">
                 <div className="toolbar-left">
                     <input
                         type="text"
                         className="form-input toolbar-search"
-                        placeholder="🔍 搜索产品/条形码/录入人..."
+                        placeholder={`🔍 ${t.searchPlaceholder}`}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -129,7 +136,7 @@ export default function AdminInventory() {
                         value={categoryFilter}
                         onChange={(e) => setCategoryFilter(e.target.value)}
                     >
-                        <option value="">所有分类</option>
+                        <option value="">{t.allCategories}</option>
                         {categories.map(cat => (
                             <option key={cat} value={cat}>{cat}</option>
                         ))}
@@ -138,7 +145,7 @@ export default function AdminInventory() {
                 <div className="toolbar-right">
                     {selectedItems.length > 0 && (
                         <button className="btn btn-danger btn-sm" onClick={deleteSelected}>
-                            🗑️ 删除 ({selectedItems.length})
+                            🗑️ {t.delete} ({selectedItems.length})
                         </button>
                     )}
                     <button
@@ -146,21 +153,20 @@ export default function AdminInventory() {
                         onClick={() => exportExcel(filteredList)}
                         disabled={filteredList.length === 0}
                     >
-                        📥 导出 Excel
+                        📥 {t.exportExcel}
                     </button>
                 </div>
             </div>
 
-            {/* 表格 */}
             <div className="admin-card">
                 <div className="admin-table-container">
                     {isLoading ? (
                         <div className="loading">
                             <span className="loading-spinner"></span>
-                            <span>加载中...</span>
+                            <span>{t.loading}</span>
                         </div>
                     ) : filteredList.length === 0 ? (
-                        <div className="empty-state">📭 暂无数据</div>
+                        <div className="empty-state">📭 {t.noData}</div>
                     ) : (
                         <table className="admin-table">
                             <thead>
@@ -172,22 +178,22 @@ export default function AdminInventory() {
                                             onChange={selectAll}
                                         />
                                     </th>
-                                    <th>图片</th>
+                                    <th>{t.image}</th>
                                     <th className="sortable" onClick={() => handleSort('name')}>
-                                        产品名称 {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
+                                        {t.productName} {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
                                     </th>
-                                    <th>条形码</th>
+                                    <th>{t.barcode}</th>
                                     <th className="sortable" onClick={() => handleSort('discountPrice')}>
-                                        价格 {sortBy === 'discountPrice' && (sortOrder === 'asc' ? '↑' : '↓')}
+                                        {t.price} {sortBy === 'discountPrice' && (sortOrder === 'asc' ? '↑' : '↓')}
                                     </th>
                                     <th className="sortable" onClick={() => handleSort('stock')}>
-                                        库存 {sortBy === 'stock' && (sortOrder === 'asc' ? '↑' : '↓')}
+                                        {t.stock} {sortBy === 'stock' && (sortOrder === 'asc' ? '↑' : '↓')}
                                     </th>
-                                    <th>录入人</th>
+                                    <th>{t.createdBy}</th>
                                     <th className="sortable" onClick={() => handleSort('createdAt')}>
-                                        入库时间 {sortBy === 'createdAt' && (sortOrder === 'asc' ? '↑' : '↓')}
+                                        {t.createdAt} {sortBy === 'createdAt' && (sortOrder === 'asc' ? '↑' : '↓')}
                                     </th>
-                                    <th>操作</th>
+                                    <th>{t.actions}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -213,11 +219,52 @@ export default function AdminInventory() {
                                         </td>
                                         <td><code>{item.barcode}</code></td>
                                         <td>
-                                            <span className="price-original-sm">MXN ${item.originalPrice}</span>
-                                            <span className="price-discount-sm">MXN ${item.discountPrice}</span>
+                                            {editingPrice === item.id ? (
+                                                <div className="price-edit-group">
+                                                    <input
+                                                        type="number"
+                                                        className="price-input"
+                                                        defaultValue={item.originalPrice}
+                                                        placeholder="Original"
+                                                        id={`orig-${item.id}`}
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        className="price-input"
+                                                        defaultValue={item.discountPrice}
+                                                        placeholder="Descuento"
+                                                        id={`disc-${item.id}`}
+                                                    />
+                                                    <button
+                                                        className="btn-icon"
+                                                        onClick={() => {
+                                                            const orig = document.getElementById(`orig-${item.id}`).value;
+                                                            const disc = document.getElementById(`disc-${item.id}`).value;
+                                                            updatePrice(item.id, orig, disc);
+                                                        }}
+                                                    >
+                                                        ✓
+                                                    </button>
+                                                    <button
+                                                        className="btn-icon"
+                                                        onClick={() => setEditingPrice(null)}
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className="price-display clickable"
+                                                    onClick={() => setEditingPrice(item.id)}
+                                                    title={t.clickToEdit}
+                                                >
+                                                    <span className="price-original-sm">MXN ${item.originalPrice}</span>
+                                                    <span className="price-discount-sm">MXN ${item.discountPrice}</span>
+                                                </div>
+                                            )}
                                         </td>
                                         <td>
-                                            {editingItem === item.id ? (
+                                            {editingStock === item.id ? (
                                                 <input
                                                     type="number"
                                                     className="stock-input"
@@ -228,21 +275,28 @@ export default function AdminInventory() {
                                                 />
                                             ) : (
                                                 <span
-                                                    className="stock-value"
-                                                    onClick={() => setEditingItem(item.id)}
-                                                    title="点击编辑"
+                                                    className="stock-value clickable"
+                                                    onClick={() => setEditingStock(item.id)}
+                                                    title={t.clickToEdit}
                                                 >
                                                     {item.stock}
                                                 </span>
                                             )}
                                         </td>
                                         <td>{item.createdBy || '-'}</td>
-                                        <td>{item.createdAt ? new Date(item.createdAt).toLocaleString('zh-CN') : '-'}</td>
+                                        <td>{item.createdAt ? new Date(item.createdAt).toLocaleString('es-MX') : '-'}</td>
                                         <td>
                                             <button
                                                 className="btn-icon"
-                                                onClick={() => setEditingItem(item.id)}
-                                                title="编辑库存"
+                                                onClick={() => setEditingPrice(item.id)}
+                                                title={t.editPrice}
+                                            >
+                                                💰
+                                            </button>
+                                            <button
+                                                className="btn-icon"
+                                                onClick={() => setEditingStock(item.id)}
+                                                title={t.editStock}
                                             >
                                                 ✏️
                                             </button>
