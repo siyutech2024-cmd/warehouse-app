@@ -28,6 +28,7 @@ export async function analyzeImage(imageBase64) {
     discountPrice: Math.round(basePrice * 0.7),
     stock: Math.floor(Math.random() * 50) + 1
   };
+}
 export const analyzeProductImage = analyzeImage;
 
 
