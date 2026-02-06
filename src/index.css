@@ -244,6 +244,43 @@ body {
   display: block;
 }
 
+/* Camera Video Styles */
+.camera-area.has-video {
+  padding: var(--space-md);
+  border-style: solid;
+  border-color: var(--primary);
+}
+
+.camera-video {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  display: block;
+  margin-bottom: var(--space-md);
+}
+
+.camera-controls {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: center;
+}
+
+.capture-btn {
+  width: auto;
+  padding: var(--space-md) var(--space-xl);
+}
+
+/* Barcode Scanner Styles */
+#barcode-scanner {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+#barcode-scanner video {
+  width: 100% !important;
+  border-radius: var(--radius-md);
+}
+
 /* ===== 产品信息卡片 ===== */
 .product-card {
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);

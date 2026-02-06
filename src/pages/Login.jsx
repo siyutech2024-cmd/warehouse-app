@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import i18n from "../i18n";
+
+const t = i18n.login;
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -11,7 +14,7 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!username.trim()) {
-      alert("请输入用户名");
+      alert(t.enterUsername);
       return;
     }
 
@@ -30,16 +33,16 @@ export default function Login() {
         <div className="login-logo">
           <div className="login-logo-icon">📦</div>
         </div>
-        <h1 className="login-title">仓库管理系统</h1>
-        <p className="login-subtitle">员工登录入口</p>
+        <h1 className="login-title">{i18n.app.title}</h1>
+        <p className="login-subtitle">{t.title}</p>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">用户名</label>
+            <label className="form-label">{t.username}</label>
             <input
               type="text"
               className="form-input"
-              placeholder="请输入用户名"
+              placeholder={t.enterUsername}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoFocus
@@ -47,7 +50,7 @@ export default function Login() {
           </div>
 
           <div className="alert alert-info" style={{ fontSize: '0.85rem' }}>
-            💡 提示：使用 "admin" 登录可访问库存管理功能
+            💡 Consejo: Use "admin" para acceder a funciones de administración
           </div>
 
           <button
@@ -58,9 +61,9 @@ export default function Login() {
             {isLoading ? (
               <>
                 <span className="loading-spinner" style={{ width: 18, height: 18 }}></span>
-                登录中...
+                {i18n.app.loading}
               </>
-            ) : "登录"}
+            ) : t.button}
           </button>
         </form>
       </div>

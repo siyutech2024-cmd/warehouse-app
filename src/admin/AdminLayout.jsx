@@ -1,5 +1,8 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import i18n from "../i18n";
+
+const t = i18n.admin;
 
 export default function AdminLayout() {
     const { user, logout } = useAuth();
@@ -12,33 +15,33 @@ export default function AdminLayout() {
 
     return (
         <div className="admin-layout">
-            {/* 侧边栏 */}
+            {/* Sidebar */}
             <aside className="admin-sidebar">
                 <div className="admin-logo">
                     <span className="admin-logo-icon">📦</span>
-                    <span className="admin-logo-text">仓库管理</span>
+                    <span className="admin-logo-text">{t.title}</span>
                 </div>
 
                 <nav className="admin-nav">
                     <NavLink to="/admin" end className={({ isActive }) => `admin-nav-item ${isActive ? 'active' : ''}`}>
                         <span className="admin-nav-icon">📊</span>
-                        <span>数据看板</span>
+                        <span>{t.dashboard}</span>
                     </NavLink>
                     <NavLink to="/admin/inventory" className={({ isActive }) => `admin-nav-item ${isActive ? 'active' : ''}`}>
                         <span className="admin-nav-icon">📦</span>
-                        <span>库存管理</span>
+                        <span>{t.inventory}</span>
                     </NavLink>
                     <NavLink to="/admin/employees" className={({ isActive }) => `admin-nav-item ${isActive ? 'active' : ''}`}>
                         <span className="admin-nav-icon">👥</span>
-                        <span>员工管理</span>
+                        <span>{t.employees}</span>
                     </NavLink>
                     <NavLink to="/admin/reports" className={({ isActive }) => `admin-nav-item ${isActive ? 'active' : ''}`}>
                         <span className="admin-nav-icon">📈</span>
-                        <span>统计报表</span>
+                        <span>{t.reports}</span>
                     </NavLink>
                     <NavLink to="/admin/settings" className={({ isActive }) => `admin-nav-item ${isActive ? 'active' : ''}`}>
                         <span className="admin-nav-icon">⚙️</span>
-                        <span>系统设置</span>
+                        <span>{t.settings}</span>
                     </NavLink>
                 </nav>
 
@@ -47,16 +50,16 @@ export default function AdminLayout() {
                         <span className="admin-user-avatar">👤</span>
                         <div className="admin-user-details">
                             <span className="admin-user-name">{user?.username}</span>
-                            <span className="admin-user-role">管理员</span>
+                            <span className="admin-user-role">Administrador</span>
                         </div>
                     </div>
                     <button className="admin-logout-btn" onClick={handleLogout}>
-                        🚪 退出
+                        🚪 {t.logout}
                     </button>
                 </div>
             </aside>
 
-            {/* 主内容区 */}
+            {/* Main Content */}
             <main className="admin-main">
                 <Outlet />
             </main>

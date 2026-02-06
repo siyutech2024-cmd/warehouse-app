@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { fetchInventory, exportExcel } from "../api";
+import i18n from "../i18n";
+
+const t = i18n.inventory;
 
 export default function InventoryList() {
   const [list, setList] = useState([]);
@@ -30,22 +33,22 @@ export default function InventoryList() {
 
   return (
     <div className="page">
-      <h1 className="page-title">📦 库存管理</h1>
+      <h1 className="page-title">{t.title}</h1>
 
       {/* 统计卡片 */}
       <div className="card fade-in">
         <div style={{ display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
           <div>
             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary)' }}>{filteredList.length}</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>商品种类</div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>{t.items}</div>
           </div>
           <div>
             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--success)' }}>{totalStock}</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>总库存</div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>{t.totalStock}</div>
           </div>
           <div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--warning)' }}>¥{totalValue.toLocaleString()}</div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>总价值</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--warning)' }}>${totalValue.toLocaleString()}</div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>Valor</div>
           </div>
         </div>
       </div>
@@ -56,7 +59,7 @@ export default function InventoryList() {
           <input
             type="text"
             className="form-input"
-            placeholder="🔍 搜索产品名称或条形码..."
+            placeholder={`🔍 ${t.searchPlaceholder}`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -67,24 +70,24 @@ export default function InventoryList() {
           onClick={() => exportExcel(filteredList)}
           disabled={filteredList.length === 0}
         >
-          📥 导出 Excel
+          {t.exportExcel}
         </button>
       </div>
 
       {/* 商品列表 */}
       <div className="card fade-in">
         <div className="card-header">
-          <span>📋</span> 商品列表
+          <span>📋</span> Lista de Productos
         </div>
 
         {isLoading ? (
           <div className="loading">
             <span className="loading-spinner"></span>
-            <span>加载中...</span>
+            <span>{i18n.app.loading}</span>
           </div>
         ) : filteredList.length === 0 ? (
           <div className="alert alert-info">
-            {list.length === 0 ? "📭 暂无库存数据" : "🔍 没有找到匹配的商品"}
+            {list.length === 0 ? "📭 No hay productos en el inventario" : "🔍 No se encontraron coincidencias"}
           </div>
         ) : (
           <div>
@@ -102,7 +105,7 @@ export default function InventoryList() {
                   <div className="inventory-item-barcode">{item.barcode}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div className="inventory-item-price">¥{item.discountPrice}</div>
+                  <div className="inventory-item-price">${item.discountPrice}</div>
                   <div className="inventory-item-stock">× {item.stock}</div>
                 </div>
               </div>

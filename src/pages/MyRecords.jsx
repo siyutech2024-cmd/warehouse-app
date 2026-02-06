@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { fetchMyInventory } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import i18n from "../i18n";
+
+const t = i18n.myRecords;
 
 export default function MyRecords() {
     const { user } = useAuth();
@@ -27,22 +30,22 @@ export default function MyRecords() {
 
     return (
         <div className="page">
-            <h1 className="page-title">📋 我的记录</h1>
+            <h1 className="page-title">{t.title}</h1>
 
             {/* 统计卡片 */}
             <div className="card fade-in">
                 <div style={{ display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
                     <div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--primary)' }}>{list.length}</div>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>录入商品</div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>{t.totalRecords}</div>
                     </div>
                     <div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--success)' }}>{totalStock}</div>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>总件数</div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>{t.totalQuantity}</div>
                     </div>
                     <div>
                         <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--warning)' }}>{user?.username}</div>
-                        <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>当前用户</div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>{t.welcome}</div>
                     </div>
                 </div>
             </div>
@@ -50,17 +53,17 @@ export default function MyRecords() {
             {/* 记录列表 */}
             <div className="card fade-in">
                 <div className="card-header">
-                    <span>📦</span> 入库记录
+                    <span>📦</span> Registros de Entrada
                 </div>
 
                 {isLoading ? (
                     <div className="loading">
                         <span className="loading-spinner"></span>
-                        <span>加载中...</span>
+                        <span>{i18n.app.loading}</span>
                     </div>
                 ) : list.length === 0 ? (
                     <div className="alert alert-info">
-                        📭 您还没有入库记录，去拍照入库吧！
+                        📭 {t.noRecords}
                     </div>
                 ) : (
                     <div>
@@ -77,11 +80,11 @@ export default function MyRecords() {
                                     <div className="inventory-item-name">{item.name}</div>
                                     <div className="inventory-item-barcode">{item.barcode}</div>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--gray-400)', marginTop: 2 }}>
-                                        {item.createdAt ? new Date(item.createdAt).toLocaleString('zh-CN') : ''}
+                                        {item.createdAt ? new Date(item.createdAt).toLocaleString('es-ES') : ''}
                                     </div>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
-                                    <div className="inventory-item-price">¥{item.discountPrice}</div>
+                                    <div className="inventory-item-price">${item.discountPrice}</div>
                                     <div className="inventory-item-stock">× {item.stock}</div>
                                 </div>
                             </div>

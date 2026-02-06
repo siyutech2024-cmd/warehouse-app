@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { fetchInventory } from "../api";
+import i18n from "../i18n";
+
+const t = i18n.dashboard;
 
 export default function Dashboard() {
     const [stats, setStats] = useState({
@@ -25,7 +28,7 @@ export default function Dashboard() {
                 new Date(item.createdAt).toDateString() === today
             );
 
-            // 员工统计
+            // Employee stats
             const employeeMap = {};
             inventory.forEach(item => {
                 const emp = item.createdBy || 'unknown';
@@ -57,7 +60,7 @@ export default function Dashboard() {
             <div className="admin-page">
                 <div className="loading">
                     <span className="loading-spinner"></span>
-                    <span>加载中...</span>
+                    <span>{i18n.app.loading}</span>
                 </div>
             </div>
         );
@@ -66,17 +69,17 @@ export default function Dashboard() {
     return (
         <div className="admin-page">
             <div className="admin-header">
-                <h1 className="admin-title">📊 数据看板</h1>
-                <p className="admin-subtitle">仓库运营数据概览</p>
+                <h1 className="admin-title">{t.title}</h1>
+                <p className="admin-subtitle">{t.subtitle}</p>
             </div>
 
-            {/* 统计卡片 */}
+            {/* Stats Cards */}
             <div className="stats-grid">
                 <div className="stat-card stat-card-primary">
                     <div className="stat-icon">📦</div>
                     <div className="stat-content">
                         <div className="stat-value">{stats.totalProducts}</div>
-                        <div className="stat-label">商品种类</div>
+                        <div className="stat-label">{t.totalProducts}</div>
                     </div>
                 </div>
 
@@ -84,15 +87,15 @@ export default function Dashboard() {
                     <div className="stat-icon">📊</div>
                     <div className="stat-content">
                         <div className="stat-value">{stats.totalStock.toLocaleString()}</div>
-                        <div className="stat-label">总库存量</div>
+                        <div className="stat-label">{t.totalStock}</div>
                     </div>
                 </div>
 
                 <div className="stat-card stat-card-warning">
                     <div className="stat-icon">💰</div>
                     <div className="stat-content">
-                        <div className="stat-value">¥{stats.totalValue.toLocaleString()}</div>
-                        <div className="stat-label">库存总价值</div>
+                        <div className="stat-value">${stats.totalValue.toLocaleString()}</div>
+                        <div className="stat-label">{t.totalValue}</div>
                     </div>
                 </div>
 
@@ -100,19 +103,19 @@ export default function Dashboard() {
                     <div className="stat-icon">📅</div>
                     <div className="stat-content">
                         <div className="stat-value">{stats.todayCount}</div>
-                        <div className="stat-label">今日入库</div>
+                        <div className="stat-label">{t.todayEntry}</div>
                     </div>
                 </div>
             </div>
 
-            {/* 员工排行 */}
+            {/* Employee Ranking */}
             <div className="admin-card">
                 <div className="admin-card-header">
-                    <h2>🏆 员工入库排行</h2>
+                    <h2>{t.employeeRanking}</h2>
                 </div>
                 <div className="admin-card-body">
                     {stats.employeeStats.length === 0 ? (
-                        <div className="empty-state">暂无数据</div>
+                        <div className="empty-state">{t.noData}</div>
                     ) : (
                         <div className="ranking-list">
                             {stats.employeeStats.map((emp, index) => (
@@ -122,8 +125,8 @@ export default function Dashboard() {
                                     </div>
                                     <div className="ranking-name">{emp.name}</div>
                                     <div className="ranking-stats">
-                                        <span className="ranking-count">{emp.count} 件</span>
-                                        <span className="ranking-value">¥{emp.value.toLocaleString()}</span>
+                                        <span className="ranking-count">{emp.count} {i18n.units.pieces}</span>
+                                        <span className="ranking-value">${emp.value.toLocaleString()}</span>
                                     </div>
                                 </div>
                             ))}
@@ -132,24 +135,24 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            {/* 快捷操作 */}
+            {/* Quick Actions */}
             <div className="admin-card">
                 <div className="admin-card-header">
-                    <h2>⚡ 快捷操作</h2>
+                    <h2>{t.quickActions}</h2>
                 </div>
                 <div className="admin-card-body">
                     <div className="quick-actions">
                         <a href="/admin/inventory" className="quick-action-btn">
                             <span>📦</span>
-                            <span>管理库存</span>
+                            <span>{t.manageInventory}</span>
                         </a>
                         <a href="/admin/employees" className="quick-action-btn">
                             <span>👥</span>
-                            <span>管理员工</span>
+                            <span>{t.manageEmployees}</span>
                         </a>
                         <a href="/admin/reports" className="quick-action-btn">
                             <span>📈</span>
-                            <span>查看报表</span>
+                            <span>{t.viewReports}</span>
                         </a>
                     </div>
                 </div>
