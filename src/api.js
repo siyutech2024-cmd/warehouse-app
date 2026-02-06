@@ -2,6 +2,13 @@ import { store } from "./store";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
+// 生成唯一条形码
+export function generateBarcode() {
+  const timestamp = Date.now().toString().slice(-8);
+  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  return `WH${timestamp}${random}`;
+}
+
 // 模拟 AI 分析
 const mockProducts = [
   { name: "苹果 MacBook Pro 14英寸", category: "电子产品", description: "Apple M3 Pro 芯片，18GB 内存，512GB 存储" },
