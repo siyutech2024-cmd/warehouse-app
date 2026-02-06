@@ -109,8 +109,8 @@ export default function AdminInventory() {
                     <span className="stat-mini-label">总库存</span>
                 </div>
                 <div className="stat-mini">
-                    <span className="stat-mini-value">¥{totalValue.toLocaleString()}</span>
-                    <span className="stat-mini-label">总价值</span>
+                    <span className="stat-mini-value">MXN ${totalValue.toLocaleString()}</span>
+                    <span className="stat-mini-label">Valor Total</span>
                 </div>
             </div>
 
@@ -213,8 +213,8 @@ export default function AdminInventory() {
                                         </td>
                                         <td><code>{item.barcode}</code></td>
                                         <td>
-                                            <span className="price-original-sm">¥{item.originalPrice}</span>
-                                            <span className="price-discount-sm">¥{item.discountPrice}</span>
+                                            <span className="price-original-sm">MXN ${item.originalPrice}</span>
+                                            <span className="price-discount-sm">MXN ${item.discountPrice}</span>
                                         </td>
                                         <td>
                                             {editingItem === item.id ? (

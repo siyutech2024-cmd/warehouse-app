@@ -29,14 +29,18 @@ export async function analyzeImage(imageBase64, retryCount = 0) {
       contents: [{
         parts: [
           {
-            text: `Analiza esta imagen de producto y devuelve SOLO un JSON válido con este formato exacto (sin markdown, sin explicaciones):
+            text: `Eres un experto en productos y precios del mercado mexicano. Analiza esta imagen de producto y devuelve SOLO un JSON válido con este formato exacto (sin markdown, sin explicaciones):
 {
   "name": "nombre del producto en español",
   "description": "descripción breve en español (máximo 100 caracteres)",
-  "category": "una de: Electrónica, Oficina, Hogar, Ropa, Alimentos, Otros",
-  "originalPrice": número estimado del precio en dólares (solo número),
+  "category": "una de: Electrónica, Oficina, Hogar, Ropa, Alimentos, Bebidas, Limpieza, Herramientas, Juguetes, Otros",
+  "originalPrice": precio estimado en PESOS MEXICANOS (MXN) basado en precios reales del mercado mexicano (solo número, sin símbolo),
   "stock": 10
 }
+IMPORTANTE: 
+- El precio debe ser realista y basado en precios de mercado mexicano (tiendas como Walmart, Chedraui, Soriana, Amazon México)
+- Considera el tipo de producto, marca visible (si hay), y calidad aparente
+- Precios comunes de referencia en MXN: snack $15-50, bebida $20-40, electrónico pequeño $200-1000, ropa básica $150-500
 Si no puedes identificar el producto, usa valores genéricos razonables.`
           },
           {

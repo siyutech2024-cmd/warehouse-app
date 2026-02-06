@@ -248,8 +248,8 @@ export default function CreateProduct() {
             <div className="product-description">{product.description}</div>
 
             <div className="product-prices">
-              <span className="price-original">${product.originalPrice}</span>
-              <span className="price-discount">${product.discountPrice}</span>
+              <span className="price-original">MXN ${product.originalPrice}</span>
+              <span className="price-discount">MXN ${product.discountPrice}</span>
               <span className="price-badge">30% OFF</span>
             </div>
 
