@@ -12,10 +12,15 @@ export default function CreateProduct() {
   const [product, setProduct] = useState(null);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(null);
+  const [useNativeCamera, setUseNativeCamera] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
+  const fileInputRef = useRef(null);
   const navigate = useNavigate();
+
+  // 检测是否为移动设备
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   // 清理相机流
   useEffect(() => {
@@ -26,9 +31,25 @@ export default function CreateProduct() {
     };
   }, []);
 
+  // 尝试启动相机流
   const startCamera = async () => {
+    // 移动端优先使用原生相机
+    if (isMobile) {
+      setUseNativeCamera(true);
+      fileInputRef.current?.click();
+      return;
+    }
+
     try {
       setCameraError(null);
+
+      // 检查是否支持 getUserMedia
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setUseNativeCamera(true);
+        fileInputRef.current?.click();
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'environment',
@@ -39,12 +60,15 @@ export default function CreateProduct() {
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        await videoRef.current.play();
       }
       setCameraActive(true);
     } catch (error) {
       console.error("Error accessing camera:", error);
-      setCameraError("No se pudo acceder a la cámara. Por favor, permita el acceso.");
+      // 如果相机访问失败，使用原生文件选择器
+      setUseNativeCamera(true);
+      setCameraError("Cámara no disponible. Use selección de archivo.");
+      fileInputRef.current?.click();
     }
   };
 
@@ -72,14 +96,38 @@ export default function CreateProduct() {
     stopCamera();
 
     // AI 分析
+    await analyzePhoto(imageData);
+  };
+
+  // 处理文件选择（原生相机或图库）
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const imageData = event.target.result;
+      setImage(imageData);
+      setUseNativeCamera(false);
+
+      // AI 分析
+      await analyzePhoto(imageData);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // AI 分析照片
+  const analyzePhoto = async (imageData) => {
     setIsAnalyzing(true);
     try {
+      console.log("Starting AI analysis...");
       const result = await analyzeProductImage(imageData);
+      console.log("AI analysis result:", result);
       result.image = imageData;
       setProduct(result);
     } catch (error) {
-      console.error("Análisis fallido:", error);
-      alert("Análisis fallido, por favor intente de nuevo");
+      console.error("AI Analysis failed:", error);
+      alert("Análisis fallido: " + error.message);
     } finally {
       setIsAnalyzing(false);
     }
@@ -98,6 +146,10 @@ export default function CreateProduct() {
     setImage(null);
     setProduct(null);
     setCameraActive(false);
+    setCameraError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -111,10 +163,25 @@ export default function CreateProduct() {
 
         <canvas ref={canvasRef} style={{ display: 'none' }} />
 
+        {/* 隐藏的文件输入（用于移动端原生相机） */}
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          ref={fileInputRef}
+          onChange={handleFileSelect}
+          style={{ display: 'none' }}
+        />
+
         {!image && !cameraActive && (
           <div className="camera-area" onClick={startCamera}>
             <div className="camera-icon">📷</div>
             <div className="camera-text">{t.startCamera}</div>
+            {isMobile && (
+              <div className="camera-hint" style={{ fontSize: '0.8rem', color: '#888', marginTop: 8 }}>
+                Toque para abrir la cámara
+              </div>
+            )}
           </div>
         )}
 

@@ -15,22 +15,18 @@ export function generateBarcode() {
 
 // 使用 Google Gemini AI 分析产品图片
 export async function analyzeImage(imageBase64) {
+  console.log("🤖 Starting Gemini AI analysis...");
+
   try {
     // 移除 data:image/... 前缀
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+    console.log("📸 Image data length:", base64Data.length);
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              {
-                text: `Analiza esta imagen de producto y devuelve SOLO un JSON válido con este formato exacto (sin markdown, sin explicaciones):
+    const requestBody = {
+      contents: [{
+        parts: [
+          {
+            text: `Analiza esta imagen de producto y devuelve SOLO un JSON válido con este formato exacto (sin markdown, sin explicaciones):
 {
   "name": "nombre del producto en español",
   "description": "descripción breve en español (máximo 100 caracteres)",
@@ -39,32 +35,56 @@ export async function analyzeImage(imageBase64) {
   "stock": 10
 }
 Si no puedes identificar el producto, usa valores genéricos razonables.`
-              },
-              {
-                inline_data: {
-                  mime_type: "image/jpeg",
-                  data: base64Data
-                }
-              }
-            ]
-          }]
-        })
+          },
+          {
+            inline_data: {
+              mime_type: "image/jpeg",
+              data: base64Data
+            }
+          }
+        ]
+      }]
+    };
+
+    console.log("📤 Sending request to Gemini API...");
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
       }
     );
 
+    console.log("📥 Response status:", response.status);
+
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error("❌ API Error Response:", errorText);
+      throw new Error(`API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log("📥 API Response:", JSON.stringify(data, null, 2));
+
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    console.log("📝 Extracted text:", text);
+
+    if (!text) {
+      throw new Error("Empty response from AI");
+    }
 
     // 清理 JSON 响应
     let jsonStr = text.trim();
     // 移除可能的 markdown 代码块
     jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    console.log("🔧 Cleaned JSON:", jsonStr);
 
     const result = JSON.parse(jsonStr);
+    console.log("✅ Parsed result:", result);
 
     // 计算折扣价
     const originalPrice = Number(result.originalPrice) || 100;
@@ -78,11 +98,12 @@ Si no puedes identificar el producto, usa valores genéricos razonables.`
       stock: result.stock || 10
     };
   } catch (error) {
-    console.error("Gemini AI Error:", error);
-    // 返回后备数据
+    console.error("❌ Gemini AI Error:", error);
+    console.error("Error details:", error.message);
+    // 返回后备数据但标记为失败
     return {
       name: "Producto (análisis fallido)",
-      description: "No se pudo analizar la imagen. Por favor edite manualmente.",
+      description: `Error: ${error.message}. Por favor edite manualmente.`,
       category: "Otros",
       originalPrice: 100,
       discountPrice: 70,
