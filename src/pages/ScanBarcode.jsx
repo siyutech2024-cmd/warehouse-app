@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Barcode from "react-barcode";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
-import { saveInventory, generateBarcode } from "../api";
+import { saveInventory, generateBarcode, checkBarcodeExists } from "../api";
 import { store } from "../store";
 import { useAuth } from "../auth/AuthContext";
 import i18n from "../i18n";
@@ -17,11 +17,12 @@ export default function ScanBarcode() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanError, setScanError] = useState(null);
   const [scanStatus, setScanStatus] = useState("");
+  const [barcodeWarning, setBarcodeWarning] = useState("");
+  const [showSuccess, setShowSuccess] = useState(false);
   const scannerRef = useRef(null);
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // 检测移动设备
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   useEffect(() => {
@@ -32,12 +33,37 @@ export default function ScanBarcode() {
     }
 
     return () => {
-      // 清理扫描器
       if (scannerRef.current) {
         scannerRef.current.stop().catch(() => { });
       }
     };
   }, []);
+
+  // 检查条形码是否重复
+  const checkDuplicate = async (code) => {
+    if (!code || code.length < 3) {
+      setBarcodeWarning("");
+      return;
+    }
+
+    try {
+      const exists = await checkBarcodeExists(code);
+      if (exists) {
+        setBarcodeWarning(`⚠️ ¡Este código ya existe! Por favor use otro código.`);
+      } else {
+        setBarcodeWarning("");
+      }
+    } catch (error) {
+      console.log("Error checking barcode:", error);
+    }
+  };
+
+  // 条形码变化时检查重复
+  const handleBarcodeChange = (e) => {
+    const newCode = e.target.value;
+    setBarcode(newCode);
+    checkDuplicate(newCode);
+  };
 
   const startScanner = async () => {
     try {
@@ -45,57 +71,48 @@ export default function ScanBarcode() {
       setScanStatus("Iniciando cámara...");
       setIsScanning(true);
 
-      // 支持的条形码格式
+      // 只支持最常用格式，加快识别速度
       const formatsToSupport = [
-        Html5QrcodeSupportedFormats.QR_CODE,
         Html5QrcodeSupportedFormats.EAN_13,
         Html5QrcodeSupportedFormats.EAN_8,
         Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39,
         Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.ITF,
-        Html5QrcodeSupportedFormats.CODABAR
+        Html5QrcodeSupportedFormats.QR_CODE
       ];
 
       const html5QrCode = new Html5Qrcode("barcode-scanner", {
-        formatsToSupport: formatsToSupport
+        formatsToSupport: formatsToSupport,
+        verbose: false
       });
       scannerRef.current = html5QrCode;
 
-      console.log("📷 Starting barcode scanner...");
-
-      // 配置扫描参数 - 高速扫描
+      // 超高速扫描配置
       const config = {
-        fps: 15, // 提高帧率加快扫描
-        qrbox: isMobile ? { width: 300, height: 200 } : { width: 350, height: 250 },
-        aspectRatio: 1.5, // 更宽的视野
-        disableFlip: false
+        fps: 30, // 最高帧率
+        qrbox: { width: 350, height: 180 }, // 宽矩形更适合条形码
+        aspectRatio: 2.0,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true // 使用原生API如支持
+        }
       };
 
       await html5QrCode.start(
         { facingMode: "environment" },
         config,
-        (decodedText, decodedResult) => {
-          // 扫描成功
-          console.log("✅ Barcode scanned:", decodedText);
-          console.log("Format:", decodedResult.result.format?.formatName);
+        async (decodedText, decodedResult) => {
+          console.log("✅ Scanned:", decodedText);
           setBarcode(decodedText);
           setScanStatus(`¡Escaneado! ${decodedResult.result.format?.formatName || ''}`);
           stopScanner();
+          // 检查重复
+          await checkDuplicate(decodedText);
         },
-        (errorMessage) => {
-          // 忽略扫描错误，继续扫描
-          // 但更新状态以显示正在扫描
-          if (!scanStatus.includes("Buscando")) {
-            setScanStatus("Buscando código de barras...");
-          }
-        }
+        () => { }
       );
 
       setScanStatus("Apunte la cámara al código de barras");
     } catch (error) {
-      console.error("❌ Scanner error:", error);
+      console.error("Scanner error:", error);
       setScanError(`Error: ${error.message || error}`);
       setScanStatus("");
       setIsScanning(false);
@@ -106,20 +123,27 @@ export default function ScanBarcode() {
     if (scannerRef.current) {
       try {
         await scannerRef.current.stop();
-        console.log("🛑 Scanner stopped");
-      } catch (e) {
-        console.log("Scanner stop error (ignored):", e);
-      }
+      } catch (e) { }
       scannerRef.current = null;
     }
     setIsScanning(false);
     setScanStatus("");
   };
 
-  const handleGenerateBarcode = () => {
-    const newBarcode = generateBarcode();
-    console.log("🔢 Generated barcode:", newBarcode);
+  const handleGenerateBarcode = async () => {
+    let newBarcode;
+    let attempts = 0;
+
+    // 生成唯一条形码，最多尝试5次
+    do {
+      newBarcode = generateBarcode();
+      const exists = await checkBarcodeExists(newBarcode);
+      if (!exists) break;
+      attempts++;
+    } while (attempts < 5);
+
     setBarcode(newBarcode);
+    setBarcodeWarning("");
   };
 
   const handleSave = async () => {
@@ -134,6 +158,13 @@ export default function ScanBarcode() {
       return;
     }
 
+    // 保存前再次检查重复
+    const exists = await checkBarcodeExists(barcode);
+    if (exists) {
+      alert("⚠️ Este código de barras ya existe. Por favor use otro código.");
+      return;
+    }
+
     setIsSaving(true);
     try {
       await saveInventory({
@@ -143,16 +174,45 @@ export default function ScanBarcode() {
         createdBy: user?.username || 'unknown',
         createdAt: new Date().toISOString()
       });
-      alert(t.success);
+
+      // 显示成功动画
+      setShowSuccess(true);
       store.clearProduct();
-      navigate("/");
+
+      // 3秒后跳转
+      setTimeout(() => {
+        navigate("/");
+      }, 2500);
+
     } catch (error) {
       console.error("Error al guardar:", error);
       alert("Error al guardar, por favor intente de nuevo");
-    } finally {
       setIsSaving(false);
     }
   };
+
+  // 成功提交界面
+  if (showSuccess) {
+    return (
+      <div className="page">
+        <div className="success-overlay">
+          <div className="success-content">
+            <div className="success-icon">✅</div>
+            <h2 className="success-title">¡Entrada Exitosa!</h2>
+            <p className="success-message">
+              El producto ha sido registrado correctamente.
+            </p>
+            <div className="success-details">
+              <p><strong>{product?.name}</strong></p>
+              <p>Código: {barcode}</p>
+              <p>Cantidad: {stock} unidades</p>
+            </div>
+            <p className="success-redirect">Redirigiendo...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -201,7 +261,6 @@ export default function ScanBarcode() {
           <span>📊</span> {t.barcodeSection}
         </div>
 
-        {/* 扫描器容器 */}
         <div
           id="barcode-scanner"
           style={{
@@ -214,7 +273,6 @@ export default function ScanBarcode() {
           }}
         />
 
-        {/* 扫描状态 */}
         {scanStatus && (
           <div className="alert alert-info" style={{ marginBottom: 12 }}>
             📷 {scanStatus}
@@ -227,14 +285,21 @@ export default function ScanBarcode() {
           </div>
         )}
 
+        {/* 重复警告 */}
+        {barcodeWarning && (
+          <div className="alert alert-danger" style={{ marginBottom: 12 }}>
+            {barcodeWarning}
+          </div>
+        )}
+
         <div className="form-group">
           <label className="form-label">{t.barcodeNumber}</label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <input
               type="text"
-              className="form-input"
+              className={`form-input ${barcodeWarning ? 'input-error' : ''}`}
               value={barcode}
-              onChange={(e) => setBarcode(e.target.value)}
+              onChange={handleBarcodeChange}
               placeholder={t.scanOrEnter}
               style={{ flex: 1, minWidth: 150 }}
             />
@@ -265,12 +330,11 @@ export default function ScanBarcode() {
           </div>
         </div>
 
-        {/* 支持的格式提示 */}
         <div style={{ fontSize: '0.75rem', color: '#888', marginTop: 8 }}>
-          Formatos: EAN-13, EAN-8, Code-128, Code-39, UPC-A, UPC-E, QR
+          Formatos: EAN-13, EAN-8, Code-128, UPC-A, QR
         </div>
 
-        {barcode && (
+        {barcode && !barcodeWarning && (
           <div className="barcode-display">
             <Barcode value={barcode} width={1.5} height={60} fontSize={12} />
           </div>
@@ -299,7 +363,7 @@ export default function ScanBarcode() {
       <button
         className="btn btn-success"
         onClick={handleSave}
-        disabled={isSaving}
+        disabled={isSaving || !!barcodeWarning}
       >
         {isSaving ? (
           <>

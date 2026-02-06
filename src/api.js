@@ -13,6 +13,19 @@ export function generateBarcode() {
   return `WH${timestamp}${random}`;
 }
 
+// 检查条形码是否已存在
+export async function checkBarcodeExists(barcode) {
+  if (!barcode || barcode.length < 3) return false;
+
+  try {
+    const inventory = await store.getInventory();
+    return inventory.some(item => item.barcode === barcode);
+  } catch (error) {
+    console.error("Error checking barcode:", error);
+    return false;
+  }
+}
+
 // 使用 Google Gemini AI 分析产品图片
 export async function analyzeImage(imageBase64, retryCount = 0) {
   const MAX_RETRIES = 3;
