@@ -69,13 +69,9 @@ export default function MyRecords() {
                     <div>
                         {list.map((item) => (
                             <div key={item.id || item.barcode} className="inventory-item">
-                                {item.image ? (
-                                    <img src={item.image} alt={item.name} className="inventory-item-image" />
-                                ) : (
-                                    <div className="inventory-item-image" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
-                                        📦
-                                    </div>
-                                )}
+                                <div className="inventory-item-image" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
+                                    📦
+                                </div>
                                 <div className="inventory-item-info">
                                     <div className="inventory-item-name">{item.name}</div>
                                     <div className="inventory-item-barcode">{item.barcode}</div>

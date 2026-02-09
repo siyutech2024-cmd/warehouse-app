@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchInventory, exportExcel } from "../api";
+import { fetchInventory, fetchInventoryWithImages, exportExcel } from "../api";
 import i18n from "../i18n";
 
 const t = i18n.inventory;
@@ -67,7 +67,10 @@ export default function InventoryList() {
 
         <button
           className="btn btn-primary"
-          onClick={async () => await exportExcel(filteredList)}
+          onClick={async () => {
+            const dataWithImages = await fetchInventoryWithImages();
+            await exportExcel(dataWithImages);
+          }}
           disabled={filteredList.length === 0}
         >
           {t.exportExcel}
@@ -93,13 +96,9 @@ export default function InventoryList() {
           <div>
             {filteredList.map((item) => (
               <div key={item.id || item.barcode} className="inventory-item">
-                {item.image ? (
-                  <img src={item.image} alt={item.name} className="inventory-item-image" />
-                ) : (
-                  <div className="inventory-item-image" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
-                    📦
-                  </div>
-                )}
+                <div className="inventory-item-image" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
+                  📦
+                </div>
                 <div className="inventory-item-info">
                   <div className="inventory-item-name">{item.name}</div>
                   <div className="inventory-item-barcode">{item.barcode}</div>

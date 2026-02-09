@@ -1,6 +1,44 @@
-import { useEffect, useState } from "react";
-import { fetchInventory, exportExcel, updateProductStock, deleteProducts, updateProductPrice } from "../api";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { fetchInventory, fetchInventoryWithImages, getProductImage, exportExcel, updateProductStock, deleteProducts, updateProductPrice } from "../api";
 import i18n from "../i18n";
+
+// 懒加载图片组件
+function LazyImage({ productId, alt }) {
+    const [src, setSrc] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const imgRef = useRef(null);
+
+    useEffect(() => {
+        if (!productId) return;
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting && !src && !loading) {
+                    setLoading(true);
+                    getProductImage(productId).then(image => {
+                        setSrc(image);
+                        setLoading(false);
+                    });
+                    observer.disconnect();
+                }
+            },
+            { rootMargin: '100px' }
+        );
+        if (imgRef.current) observer.observe(imgRef.current);
+        return () => observer.disconnect();
+    }, [productId, src, loading]);
+
+    return (
+        <div ref={imgRef} className="table-image-wrapper">
+            {src ? (
+                <img src={src} alt={alt} className="table-image" loading="lazy" />
+            ) : loading ? (
+                <div className="table-image-placeholder">⏳</div>
+            ) : (
+                <div className="table-image-placeholder">📦</div>
+            )}
+        </div>
+    );
+}
 
 const t = i18n.adminInventory;
 
@@ -150,7 +188,10 @@ export default function AdminInventory() {
                     )}
                     <button
                         className="btn btn-primary btn-sm"
-                        onClick={async () => await exportExcel(filteredList)}
+                        onClick={async () => {
+                            const dataWithImages = await fetchInventoryWithImages();
+                            await exportExcel(dataWithImages);
+                        }}
                         disabled={filteredList.length === 0}
                     >
                         📥 {t.exportExcel}
@@ -207,11 +248,7 @@ export default function AdminInventory() {
                                             />
                                         </td>
                                         <td>
-                                            {item.image ? (
-                                                <img src={item.image} alt={item.name} className="table-image" />
-                                            ) : (
-                                                <div className="table-image-placeholder">📦</div>
-                                            )}
+                                            <LazyImage productId={item.id} alt={item.name} />
                                         </td>
                                         <td>
                                             <div className="table-product-name">{item.name}</div>

@@ -87,7 +87,69 @@ const supabaseStore = {
     return newItem;
   },
 
+  // 列表查询 — 不加载 image 字段（节省 95%+ 传输量）
   async getInventory() {
+    if (isSupabaseEnabled) {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, description, category, barcode, original_price, discount_price, stock, created_by, created_by_role, created_at')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('获取库存失败:', error);
+        return [];
+      }
+
+      return data.map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        category: item.category,
+        barcode: item.barcode,
+        originalPrice: item.original_price,
+        discountPrice: item.discount_price,
+        stock: item.stock,
+        image: null,
+        createdBy: item.created_by,
+        createdByRole: item.created_by_role,
+        createdAt: item.created_at
+      }));
+    }
+    return [];
+  },
+
+  async getMyInventory(username) {
+    if (isSupabaseEnabled) {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, description, category, barcode, original_price, discount_price, stock, created_by, created_at')
+        .eq('created_by', username)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('获取我的库存失败:', error);
+        return [];
+      }
+
+      return data.map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        category: item.category,
+        barcode: item.barcode,
+        originalPrice: item.original_price,
+        discountPrice: item.discount_price,
+        stock: item.stock,
+        image: null,
+        createdBy: item.created_by,
+        createdAt: item.created_at
+      }));
+    }
+    return [];
+  },
+
+  // 获取含图片的完整数据（仅导出 Excel 时使用）
+  async getInventoryWithImages() {
     if (isSupabaseEnabled) {
       const { data, error } = await supabase
         .from('products')
@@ -95,7 +157,7 @@ const supabaseStore = {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('获取库存失败:', error);
+        console.error('获取库存(含图片)失败:', error);
         return [];
       }
 
@@ -117,34 +179,19 @@ const supabaseStore = {
     return [];
   },
 
-  async getMyInventory(username) {
+  // 获取单个产品图片（懒加载用）
+  async getProductImage(productId) {
     if (isSupabaseEnabled) {
       const { data, error } = await supabase
         .from('products')
-        .select('*')
-        .eq('created_by', username)
-        .order('created_at', { ascending: false });
+        .select('image')
+        .eq('id', productId)
+        .single();
 
-      if (error) {
-        console.error('获取我的库存失败:', error);
-        return [];
-      }
-
-      return data.map(item => ({
-        id: item.id,
-        name: item.name,
-        description: item.description,
-        category: item.category,
-        barcode: item.barcode,
-        originalPrice: item.original_price,
-        discountPrice: item.discount_price,
-        stock: item.stock,
-        image: item.image,
-        createdBy: item.created_by,
-        createdAt: item.created_at
-      }));
+      if (error) return null;
+      return data?.image || null;
     }
-    return [];
+    return null;
   },
 
   async updateStock(id, stock) {

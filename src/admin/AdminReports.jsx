@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchInventory, exportExcel } from "../api";
+import { fetchInventory, fetchInventoryWithImages, exportExcel } from "../api";
 
 export default function AdminReports() {
     const [inventory, setInventory] = useState([]);
@@ -120,7 +120,10 @@ export default function AdminReports() {
                     </div>
                 </div>
                 <div className="toolbar-right">
-                    <button className="btn btn-primary btn-sm" onClick={async () => await exportExcel(inventory)}>
+                    <button className="btn btn-primary btn-sm" onClick={async () => {
+                        const dataWithImages = await fetchInventoryWithImages();
+                        await exportExcel(dataWithImages);
+                    }}>
                         📥 导出完整报表
                     </button>
                 </div>
