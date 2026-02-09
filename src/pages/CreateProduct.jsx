@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { analyzeProductImage, saveInventory } from "../api";
+import { analyzeImage, saveInventory } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import i18n from "../i18n";
 
@@ -13,8 +13,8 @@ export default function CreateProduct() {
   const [product, setProduct] = useState(null);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(null);
-  const [useNativeCamera, setUseNativeCamera] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [savedProduct, setSavedProduct] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -38,7 +38,6 @@ export default function CreateProduct() {
   const startCamera = async () => {
     // 移动端优先使用原生相机
     if (isMobile) {
-      setUseNativeCamera(true);
       fileInputRef.current?.click();
       return;
     }
@@ -46,9 +45,7 @@ export default function CreateProduct() {
     try {
       setCameraError(null);
 
-      // 检查是否支持 getUserMedia
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setUseNativeCamera(true);
         fileInputRef.current?.click();
         return;
       }
@@ -68,8 +65,6 @@ export default function CreateProduct() {
       setCameraActive(true);
     } catch (error) {
       console.error("Error accessing camera:", error);
-      // 如果相机访问失败，使用原生文件选择器
-      setUseNativeCamera(true);
       setCameraError("Cámara no disponible. Use selección de archivo.");
       fileInputRef.current?.click();
     }
@@ -97,12 +92,10 @@ export default function CreateProduct() {
     const imageData = canvas.toDataURL('image/jpeg', 0.8);
     setImage(imageData);
     stopCamera();
-
-    // AI 分析
     await analyzePhoto(imageData);
   };
 
-  // 处理文件选择（原生相机或图库）
+  // 处理文件选择
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -111,9 +104,6 @@ export default function CreateProduct() {
     reader.onload = async (event) => {
       const imageData = event.target.result;
       setImage(imageData);
-      setUseNativeCamera(false);
-
-      // AI 分析
       await analyzePhoto(imageData);
     };
     reader.readAsDataURL(file);
@@ -123,14 +113,21 @@ export default function CreateProduct() {
   const analyzePhoto = async (imageData) => {
     setIsAnalyzing(true);
     try {
-      console.log("Starting ChatGPT AI analysis...");
-      const result = await analyzeProductImage(imageData);
-      console.log("AI analysis result:", result);
+      const result = await analyzeImage(imageData);
       result.image = imageData;
       setProduct(result);
     } catch (error) {
       console.error("AI Analysis failed:", error);
-      alert("Análisis fallido: " + error.message);
+      // 分析失败时提供默认可编辑数据
+      setProduct({
+        name: "",
+        description: "",
+        category: "Otros",
+        originalPrice: 100,
+        discountPrice: 70,
+        stock: 10,
+        image: imageData
+      });
     } finally {
       setIsAnalyzing(false);
     }
@@ -140,7 +137,6 @@ export default function CreateProduct() {
   const updateField = (field, value) => {
     setProduct(prev => {
       const updated = { ...prev, [field]: value };
-      // 如果修改了原价，自动计算折扣价
       if (field === 'originalPrice') {
         updated.discountPrice = Math.round(Number(value) * 0.7);
       }
@@ -148,10 +144,25 @@ export default function CreateProduct() {
     });
   };
 
-  // 直接保存产品
+  // 重置表单，准备下一个产品
+  const resetForm = () => {
+    setImage(null);
+    setProduct(null);
+    setCameraActive(false);
+    setCameraError(null);
+    setShowSuccess(false);
+    setSavedProduct(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  // 保存产品
   const handleSave = async () => {
-    if (!product) {
-      alert("Por favor tome una foto y espere el análisis");
+    if (!product) return;
+
+    if (!product.name?.trim()) {
+      alert("Por favor ingrese el nombre del producto");
       return;
     }
 
@@ -164,24 +175,13 @@ export default function CreateProduct() {
         createdAt: new Date().toISOString()
       });
 
-      // 显示成功动画
+      // 保存成功信息
+      setSavedProduct({ ...product });
       setShowSuccess(true);
-
-      // 3秒后重置
-      setTimeout(() => {
-        setShowSuccess(false);
-        setImage(null);
-        setProduct(null);
-        setCameraActive(false);
-        setCameraError(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-      }, 2500);
 
     } catch (error) {
       console.error("Error al guardar:", error);
-      alert("Error al guardar, por favor intente de nuevo");
+      alert(`❌ Error al guardar: ${error.message || 'Intente de nuevo'}`);
     } finally {
       setIsSaving(false);
     }
@@ -190,14 +190,13 @@ export default function CreateProduct() {
   const handleRetake = () => {
     setImage(null);
     setProduct(null);
-    setCameraActive(false);
     setCameraError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  // 成功提交界面
+  // 成功界面 — 带"继续录入"和"查看记录"按钮
   if (showSuccess) {
     return (
       <div className="page">
@@ -205,15 +204,40 @@ export default function CreateProduct() {
           <div className="success-content">
             <div className="success-icon">✅</div>
             <h2 className="success-title">{t.saveSuccess}</h2>
-            <p className="success-message">
-              {t.saveSuccessMsg}
-            </p>
+            <p className="success-message">{t.saveSuccessMsg}</p>
             <div className="success-details">
-              <p><strong>{product?.name}</strong></p>
-              <p>{t.quantity}: {product?.stock} {i18n.units.pieces}</p>
-              <p>MXN ${product?.discountPrice}</p>
+              {savedProduct?.image && (
+                <img
+                  src={savedProduct.image}
+                  alt={savedProduct.name}
+                  style={{
+                    width: 80, height: 80, objectFit: 'cover',
+                    borderRadius: 12, margin: '0 auto 12px', display: 'block'
+                  }}
+                />
+              )}
+              <p><strong>{savedProduct?.name}</strong></p>
+              <p>{t.quantity}: {savedProduct?.stock} {i18n.units.pieces}</p>
+              <p>MXN ${savedProduct?.discountPrice}</p>
             </div>
-            <p className="success-redirect">{t.redirecting}</p>
+
+            {/* 操作按钮 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 20 }}>
+              <button
+                className="btn btn-primary"
+                onClick={resetForm}
+                style={{ fontSize: '1rem' }}
+              >
+                📷 Agregar otro producto
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => navigate("/my-records")}
+                style={{ fontSize: '0.9rem' }}
+              >
+                📋 Ver mis registros
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -224,6 +248,7 @@ export default function CreateProduct() {
     <div className="page">
       <h1 className="page-title">{t.title}</h1>
 
+      {/* 拍照区域 */}
       <div className="card fade-in">
         <div className="card-header">
           <span>📸</span> {t.step1}
@@ -231,7 +256,6 @@ export default function CreateProduct() {
 
         <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-        {/* 隐藏的文件输入（用于移动端原生相机） */}
         <input
           type="file"
           accept="image/*"
@@ -246,7 +270,7 @@ export default function CreateProduct() {
             <div className="camera-icon">📷</div>
             <div className="camera-text">{t.startCamera}</div>
             {isMobile && (
-              <div className="camera-hint" style={{ fontSize: '0.8rem', color: '#888', marginTop: 8 }}>
+              <div style={{ fontSize: '0.8rem', color: '#888', marginTop: 8 }}>
                 Toque para abrir la cámara
               </div>
             )}
@@ -255,13 +279,7 @@ export default function CreateProduct() {
 
         {cameraActive && (
           <div className="camera-area has-video">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="camera-video"
-            />
+            <video ref={videoRef} autoPlay playsInline muted className="camera-video" />
             <div className="camera-controls">
               <button className="btn btn-primary capture-btn" onClick={capturePhoto}>
                 {t.capture}
@@ -285,17 +303,14 @@ export default function CreateProduct() {
           </div>
         )}
 
-        {image && (
-          <button
-            className="btn btn-secondary"
-            onClick={handleRetake}
-            style={{ marginTop: 12 }}
-          >
+        {image && !isAnalyzing && (
+          <button className="btn btn-secondary" onClick={handleRetake} style={{ marginTop: 12 }}>
             {t.retake}
           </button>
         )}
       </div>
 
+      {/* AI 分析中 */}
       {isAnalyzing && (
         <div className="card fade-in">
           <div className="loading">
@@ -305,45 +320,54 @@ export default function CreateProduct() {
         </div>
       )}
 
+      {/* 分析结果 — 可编辑表单 */}
       {product && !isAnalyzing && (
         <div className="card fade-in">
           <div className="card-header">
             <span>✨</span> {t.result}
           </div>
 
-          <div className="product-card">
-            {/* 可编辑的产品名称 */}
-            <div className="form-group" style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '4px 0' }}>
+            {/* 产品名称 */}
+            <div className="form-group">
               <label className="form-label">{t.editName}</label>
               <input
                 type="text"
                 className="form-input"
                 value={product.name}
                 onChange={(e) => updateField('name', e.target.value)}
+                placeholder="Ej: Coca Cola 600ml"
               />
             </div>
 
-            {/* 可编辑的描述 */}
-            <div className="form-group" style={{ marginBottom: 12 }}>
+            {/* 描述 */}
+            <div className="form-group">
               <label className="form-label">{t.editDescription}</label>
               <input
                 type="text"
                 className="form-input"
                 value={product.description}
                 onChange={(e) => updateField('description', e.target.value)}
+                placeholder="Descripción breve del producto"
               />
             </div>
 
-            {/* 分类显示 */}
-            <div className="product-meta">
-              <div className="meta-item">
-                <span>📁</span>
-                <span>{product.category}</span>
-              </div>
+            {/* 分类选择 */}
+            <div className="form-group">
+              <label className="form-label">{t.category}</label>
+              <select
+                className="form-input"
+                value={product.category}
+                onChange={(e) => updateField('category', e.target.value)}
+              >
+                {["Electrónica", "Oficina", "Hogar", "Ropa", "Alimentos", "Bebidas", "Limpieza", "Herramientas", "Juguetes", "Otros"].map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
             </div>
 
-            {/* 可编辑的价格 */}
-            <div className="form-group" style={{ marginBottom: 12, marginTop: 12 }}>
+            {/* 价格区域 */}
+            <div className="form-group">
               <label className="form-label">{t.editPrice}</label>
               <input
                 type="number"
@@ -351,17 +375,18 @@ export default function CreateProduct() {
                 value={product.originalPrice}
                 onChange={(e) => updateField('originalPrice', e.target.value)}
                 min="0"
+                step="0.01"
               />
             </div>
 
-            <div className="product-prices" style={{ marginBottom: 12 }}>
+            <div className="product-prices">
               <span className="price-original">MXN ${product.originalPrice}</span>
               <span className="price-discount">MXN ${product.discountPrice}</span>
               <span className="price-badge">30% OFF</span>
             </div>
 
-            {/* 可编辑的库存 */}
-            <div className="form-group" style={{ marginBottom: 12 }}>
+            {/* 库存 */}
+            <div className="form-group">
               <label className="form-label">{t.editStock}</label>
               <input
                 type="number"
@@ -377,12 +402,12 @@ export default function CreateProduct() {
           <button
             className="btn btn-success"
             onClick={handleSave}
-            disabled={isSaving}
-            style={{ marginTop: 16 }}
+            disabled={isSaving || !product.name?.trim()}
+            style={{ marginTop: 16, width: '100%', padding: '14px', fontSize: '1rem' }}
           >
             {isSaving ? (
               <>
-                <span className="loading-spinner" style={{ width: 18, height: 18 }}></span>
+                <span className="loading-spinner" style={{ width: 18, height: 18, marginRight: 8 }}></span>
                 {t.saving}
               </>
             ) : t.confirmSave}

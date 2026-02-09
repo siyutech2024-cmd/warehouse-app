@@ -63,22 +63,20 @@ const supabaseStore = {
     };
 
     if (isSupabaseEnabled) {
-      const insertData = {
+      // 如果没有条码，自动生成唯一内部编码
+      const barcode = newItem.barcode || `AUTO-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+      const { error } = await supabase.from('products').insert({
         name: newItem.name,
         description: newItem.description,
         category: newItem.category,
+        barcode: barcode,
         original_price: newItem.originalPrice,
         discount_price: newItem.discountPrice,
         stock: newItem.stock,
         image: newItem.image,
         created_by: newItem.created_by,
         created_by_role: newItem.created_by_role
-      };
-      // 条形码为可选字段
-      if (newItem.barcode) {
-        insertData.barcode = newItem.barcode;
-      }
-      const { error } = await supabase.from('products').insert(insertData);
+      });
       if (error) {
         console.error('添加库存失败:', error);
         throw error;
