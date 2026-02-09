@@ -67,7 +67,7 @@ export default function InventoryList() {
 
         <button
           className="btn btn-primary"
-          onClick={() => exportExcel(filteredList)}
+          onClick={async () => await exportExcel(filteredList)}
           disabled={filteredList.length === 0}
         >
           {t.exportExcel}

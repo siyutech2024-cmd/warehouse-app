@@ -33,7 +33,6 @@ export const i18n = {
     // 导航
     nav: {
         photo: "Entrada",
-        barcode: "Código",
         inventory: "Inventario",
         myRecords: "Mis Registros",
         admin: "Admin"
@@ -49,30 +48,21 @@ export const i18n = {
         result: "✨ Resultado del Análisis AI",
         stock: "Stock",
         category: "Categoría",
-        nextStep: "Siguiente: Ingresar código de barras →",
         startCamera: "📷 Iniciar Cámara",
         capture: "📸 Capturar",
-        stopCamera: "Detener Cámara"
+        stopCamera: "Detener Cámara",
+        editName: "Nombre del Producto",
+        editDescription: "Descripción",
+        editPrice: "Precio Original (MXN)",
+        editStock: "Cantidad de Stock",
+        saving: "Guardando...",
+        confirmSave: "✅ Confirmar Entrada",
+        saveSuccess: "¡Entrada Exitosa!",
+        saveSuccessMsg: "El producto ha sido registrado correctamente.",
+        quantity: "Cantidad",
+        redirecting: "Redirigiendo..."
     },
 
-    // 条形码
-    barcode: {
-        title: "📊 Entrada de Código de Barras",
-        productInfo: "📦 Información del Producto",
-        barcodeSection: "📊 Código de Barras",
-        barcodeNumber: "Número de Código",
-        scanOrEnter: "Escanear o ingresar código",
-        generate: "Generar",
-        scan: "📷 Escanear",
-        stopScan: "Detener",
-        stockSection: "📈 Cantidad de Stock",
-        quantity: "Cantidad de entrada",
-        confirmEntry: "✅ Confirmar Entrada",
-        saving: "Guardando...",
-        success: "✅ ¡Entrada exitosa!",
-        noProduct: "⚠️ Primero tome una foto en la página de entrada",
-        goToPhoto: "Ir a Entrada de Foto"
-    },
 
     // 库存
     inventory: {

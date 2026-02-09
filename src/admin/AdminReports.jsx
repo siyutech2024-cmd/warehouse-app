@@ -120,7 +120,7 @@ export default function AdminReports() {
                     </div>
                 </div>
                 <div className="toolbar-right">
-                    <button className="btn btn-primary btn-sm" onClick={() => exportExcel(inventory)}>
+                    <button className="btn btn-primary btn-sm" onClick={async () => await exportExcel(inventory)}>
                         📥 导出完整报表
                     </button>
                 </div>

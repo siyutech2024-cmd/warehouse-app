@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { analyzeProductImage } from "../api";
-import { store } from "../store";
+import { analyzeProductImage, saveInventory } from "../api";
+import { useAuth } from "../auth/AuthContext";
 import i18n from "../i18n";
 
 const t = i18n.createProduct;
@@ -9,15 +9,18 @@ const t = i18n.createProduct;
 export default function CreateProduct() {
   const [image, setImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [product, setProduct] = useState(null);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState(null);
   const [useNativeCamera, setUseNativeCamera] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // 检测是否为移动设备
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -120,7 +123,7 @@ export default function CreateProduct() {
   const analyzePhoto = async (imageData) => {
     setIsAnalyzing(true);
     try {
-      console.log("Starting AI analysis...");
+      console.log("Starting ChatGPT AI analysis...");
       const result = await analyzeProductImage(imageData);
       console.log("AI analysis result:", result);
       result.image = imageData;
@@ -133,13 +136,55 @@ export default function CreateProduct() {
     }
   };
 
-  const handleNext = () => {
+  // 更新产品字段
+  const updateField = (field, value) => {
+    setProduct(prev => {
+      const updated = { ...prev, [field]: value };
+      // 如果修改了原价，自动计算折扣价
+      if (field === 'originalPrice') {
+        updated.discountPrice = Math.round(Number(value) * 0.7);
+      }
+      return updated;
+    });
+  };
+
+  // 直接保存产品
+  const handleSave = async () => {
     if (!product) {
       alert("Por favor tome una foto y espere el análisis");
       return;
     }
-    store.setProduct(product);
-    navigate("/barcode");
+
+    setIsSaving(true);
+    try {
+      await saveInventory({
+        ...product,
+        stock: product.stock || 10,
+        createdBy: user?.username || 'unknown',
+        createdAt: new Date().toISOString()
+      });
+
+      // 显示成功动画
+      setShowSuccess(true);
+
+      // 3秒后重置
+      setTimeout(() => {
+        setShowSuccess(false);
+        setImage(null);
+        setProduct(null);
+        setCameraActive(false);
+        setCameraError(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }, 2500);
+
+    } catch (error) {
+      console.error("Error al guardar:", error);
+      alert("Error al guardar, por favor intente de nuevo");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleRetake = () => {
@@ -151,6 +196,29 @@ export default function CreateProduct() {
       fileInputRef.current.value = "";
     }
   };
+
+  // 成功提交界面
+  if (showSuccess) {
+    return (
+      <div className="page">
+        <div className="success-overlay">
+          <div className="success-content">
+            <div className="success-icon">✅</div>
+            <h2 className="success-title">{t.saveSuccess}</h2>
+            <p className="success-message">
+              {t.saveSuccessMsg}
+            </p>
+            <div className="success-details">
+              <p><strong>{product?.name}</strong></p>
+              <p>{t.quantity}: {product?.stock} {i18n.units.pieces}</p>
+              <p>MXN ${product?.discountPrice}</p>
+            </div>
+            <p className="success-redirect">{t.redirecting}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page">
@@ -244,33 +312,80 @@ export default function CreateProduct() {
           </div>
 
           <div className="product-card">
-            <div className="product-name">{product.name}</div>
-            <div className="product-description">{product.description}</div>
-
-            <div className="product-prices">
-              <span className="price-original">MXN ${product.originalPrice}</span>
-              <span className="price-discount">MXN ${product.discountPrice}</span>
-              <span className="price-badge">30% OFF</span>
+            {/* 可编辑的产品名称 */}
+            <div className="form-group" style={{ marginBottom: 12 }}>
+              <label className="form-label">{t.editName}</label>
+              <input
+                type="text"
+                className="form-input"
+                value={product.name}
+                onChange={(e) => updateField('name', e.target.value)}
+              />
             </div>
 
+            {/* 可编辑的描述 */}
+            <div className="form-group" style={{ marginBottom: 12 }}>
+              <label className="form-label">{t.editDescription}</label>
+              <input
+                type="text"
+                className="form-input"
+                value={product.description}
+                onChange={(e) => updateField('description', e.target.value)}
+              />
+            </div>
+
+            {/* 分类显示 */}
             <div className="product-meta">
-              <div className="meta-item">
-                <span>📦</span>
-                <span>{t.stock}: {product.stock} {i18n.units.pieces}</span>
-              </div>
               <div className="meta-item">
                 <span>📁</span>
                 <span>{product.category}</span>
               </div>
             </div>
+
+            {/* 可编辑的价格 */}
+            <div className="form-group" style={{ marginBottom: 12, marginTop: 12 }}>
+              <label className="form-label">{t.editPrice}</label>
+              <input
+                type="number"
+                className="form-input"
+                value={product.originalPrice}
+                onChange={(e) => updateField('originalPrice', e.target.value)}
+                min="0"
+              />
+            </div>
+
+            <div className="product-prices" style={{ marginBottom: 12 }}>
+              <span className="price-original">MXN ${product.originalPrice}</span>
+              <span className="price-discount">MXN ${product.discountPrice}</span>
+              <span className="price-badge">30% OFF</span>
+            </div>
+
+            {/* 可编辑的库存 */}
+            <div className="form-group" style={{ marginBottom: 12 }}>
+              <label className="form-label">{t.editStock}</label>
+              <input
+                type="number"
+                className="form-input"
+                value={product.stock}
+                onChange={(e) => updateField('stock', parseInt(e.target.value) || 0)}
+                min="1"
+              />
+            </div>
           </div>
 
+          {/* 保存按钮 */}
           <button
             className="btn btn-success"
-            onClick={handleNext}
+            onClick={handleSave}
+            disabled={isSaving}
             style={{ marginTop: 16 }}
           >
-            {t.nextStep}
+            {isSaving ? (
+              <>
+                <span className="loading-spinner" style={{ width: 18, height: 18 }}></span>
+                {t.saving}
+              </>
+            ) : t.confirmSave}
           </button>
         </div>
       )}

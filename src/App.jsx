@@ -5,7 +5,6 @@ import i18n from "./i18n";
 
 import Login from "./pages/Login";
 import CreateProduct from "./pages/CreateProduct";
-import ScanBarcode from "./pages/ScanBarcode";
 import MyRecords from "./pages/MyRecords";
 
 // Admin Backend
@@ -30,10 +29,6 @@ function BottomNav() {
       <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} end>
         <span className="nav-icon">📷</span>
         <span>{nav.photo}</span>
-      </NavLink>
-      <NavLink to="/barcode" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-        <span className="nav-icon">📊</span>
-        <span>{nav.barcode}</span>
       </NavLink>
       <NavLink to="/my-records" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
         <span className="nav-icon">📋</span>
@@ -69,7 +64,6 @@ export default function App() {
           {/* Employee Pages */}
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<ProtectedRoute><CreateProduct /></ProtectedRoute>} />
-          <Route path="/barcode" element={<ProtectedRoute><ScanBarcode /></ProtectedRoute>} />
           <Route path="/my-records" element={<ProtectedRoute><MyRecords /></ProtectedRoute>} />
 
           {/* Admin Backend */}

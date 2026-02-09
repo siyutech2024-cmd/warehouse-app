@@ -1,30 +1,10 @@
 import { store } from "./store";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
 import i18n from "./i18n";
 
-// Google Gemini API Key
-const GEMINI_API_KEY = "AIzaSyBf37bJO2GYlY0FToiZG12I72F-sZglYDA";
-
-// 生成唯一条形码
-export function generateBarcode() {
-  const timestamp = Date.now().toString().slice(-8);
-  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-  return `WH${timestamp}${random}`;
-}
-
-// 检查条形码是否已存在
-export async function checkBarcodeExists(barcode) {
-  if (!barcode || barcode.length < 3) return false;
-
-  try {
-    const inventory = await store.getInventory();
-    return inventory.some(item => item.barcode === barcode);
-  } catch (error) {
-    console.error("Error checking barcode:", error);
-    return false;
-  }
-}
+// Google Gemini API Key（从环境变量读取，避免泄露）
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 // 使用 Google Gemini AI 分析产品图片
 export async function analyzeImage(imageBase64, retryCount = 0) {
@@ -145,19 +125,6 @@ Si no puedes identificar el producto, usa valores genéricos razonables.`
 
 export const analyzeProductImage = analyzeImage;
 
-export async function analyzeBarcode(barcode) {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return {
-    name: "Producto Escaneado",
-    description: "Producto identificado por código de barras",
-    category: "Otros",
-    barcode: barcode,
-    originalPrice: 100,
-    discountPrice: 70,
-    stock: 10
-  };
-}
-
 export async function createProduct(data) {
   store.setProduct(data);
   return data;
@@ -187,8 +154,8 @@ export async function updateProductPrice(id, originalPrice, discountPrice) {
   return await store.updatePrice(id, originalPrice, discountPrice);
 }
 
-// 导出 Excel - 支持筛选条件
-export function exportExcel(data, filters = {}) {
+// 导出 Excel - 支持筛选条件和图片嵌入
+export async function exportExcel(data, filters = {}) {
   let filteredData = [...data];
 
   // 应用日期筛选
@@ -220,39 +187,102 @@ export function exportExcel(data, filters = {}) {
     filteredData = filteredData.filter(item => item.createdBy === filters.employee);
   }
 
-  const formattedData = filteredData.map((item, index) => ({
-    "No.": index + 1,
-    "Producto": item.name,
-    "Descripción": item.description || "",
-    "Categoría": item.category || "Sin categoría",
-    "Código de Barras": item.barcode,
-    "Precio Original": item.originalPrice,
-    "Precio Descuento": item.discountPrice,
-    "Stock": item.stock,
-    "Creador": item.createdBy || "-",
-    "Fecha": item.createdAt ? new Date(item.createdAt).toLocaleString('es-ES') : "-"
-  }));
+  // 使用 ExcelJS 创建工作簿
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Warehouse App';
+  workbook.created = new Date();
 
-  const worksheet = XLSX.utils.json_to_sheet(formattedData);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Inventario");
+  const worksheet = workbook.addWorksheet('Inventario', {
+    properties: { defaultRowHeight: 60 }
+  });
 
-  // 设置列宽
-  worksheet["!cols"] = [
-    { wch: 6 },  // No.
-    { wch: 30 }, // Producto
-    { wch: 40 }, // Descripción
-    { wch: 12 }, // Categoría
-    { wch: 15 }, // Código de Barras
-    { wch: 10 }, // Precio Original
-    { wch: 10 }, // Precio Descuento
-    { wch: 8 },  // Stock
-    { wch: 12 }, // Creador
-    { wch: 20 }  // Fecha
+  // 定义列
+  worksheet.columns = [
+    { header: 'No.', key: 'no', width: 6 },
+    { header: 'Imagen', key: 'image', width: 15 },
+    { header: 'Producto', key: 'name', width: 30 },
+    { header: 'Descripción', key: 'description', width: 40 },
+    { header: 'Categoría', key: 'category', width: 14 },
+    { header: 'Precio Original', key: 'originalPrice', width: 14 },
+    { header: 'Precio Descuento', key: 'discountPrice', width: 14 },
+    { header: 'Stock', key: 'stock', width: 8 },
+    { header: 'Creador', key: 'createdBy', width: 12 },
+    { header: 'Fecha', key: 'createdAt', width: 20 }
   ];
 
-  const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-  const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
+  // 样式化表头
+  const headerRow = worksheet.getRow(1);
+  headerRow.height = 25;
+  headerRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF4472C4' }
+  };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  // 添加数据和图片
+  for (let i = 0; i < filteredData.length; i++) {
+    const item = filteredData[i];
+    const rowIndex = i + 2; // 第一行是表头
+
+    const row = worksheet.addRow({
+      no: i + 1,
+      image: '', // 图片列占位
+      name: item.name || '',
+      description: item.description || '',
+      category: item.category || 'Sin categoría',
+      originalPrice: item.originalPrice || 0,
+      discountPrice: item.discountPrice || 0,
+      stock: item.stock || 0,
+      createdBy: item.createdBy || '-',
+      createdAt: item.createdAt ? new Date(item.createdAt).toLocaleString('es-ES') : '-'
+    });
+
+    row.height = 60;
+    row.alignment = { vertical: 'middle', wrapText: true };
+
+    // 嵌入产品图片
+    if (item.image && item.image.startsWith('data:')) {
+      try {
+        // 从 data URI 中提取 base64 数据
+        const base64Data = item.image.split(',')[1];
+        const extension = item.image.includes('png') ? 'png' : 'jpeg';
+
+        const imageId = workbook.addImage({
+          base64: base64Data,
+          extension: extension,
+        });
+
+        worksheet.addImage(imageId, {
+          tl: { col: 1, row: rowIndex - 1 }, // 图片左上角
+          ext: { width: 80, height: 55 } // 图片尺寸(像素)
+        });
+      } catch (imgError) {
+        console.warn(`⚠️ Could not embed image for row ${rowIndex}:`, imgError);
+        // 图片嵌入失败时在单元格显示文字
+        row.getCell('image').value = '(imagen no disponible)';
+      }
+    } else {
+      row.getCell('image').value = '(sin imagen)';
+    }
+  }
+
+  // 添加边框样式
+  worksheet.eachRow((row, rowNumber) => {
+    row.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+        left: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+        bottom: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+        right: { style: 'thin', color: { argb: 'FFD0D0D0' } }
+      };
+    });
+  });
+
+  // 生成并下载
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const fileName = `Inventario_${new Date().toLocaleDateString('es-ES').replace(/\//g, '-')}.xlsx`;
   saveAs(blob, fileName);
 

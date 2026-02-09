@@ -150,7 +150,7 @@ export default function AdminInventory() {
                     )}
                     <button
                         className="btn btn-primary btn-sm"
-                        onClick={() => exportExcel(filteredList)}
+                        onClick={async () => await exportExcel(filteredList)}
                         disabled={filteredList.length === 0}
                     >
                         📥 {t.exportExcel}
