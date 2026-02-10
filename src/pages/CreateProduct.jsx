@@ -34,6 +34,42 @@ export default function CreateProduct() {
     };
   }, []);
 
+  // 图片压缩：限制最大尺寸 800px，JPEG 质量 0.6
+  // 可将 3-5MB 的图片压缩到 50-150KB
+  const compressImage = (dataUri, maxSize = 800, quality = 0.6) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+
+        // 按比例缩放到最大尺寸
+        if (width > maxSize || height > maxSize) {
+          if (width > height) {
+            height = Math.round(height * (maxSize / width));
+            width = maxSize;
+          } else {
+            width = Math.round(width * (maxSize / height));
+            height = maxSize;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const compressed = canvas.toDataURL('image/jpeg', quality);
+        const originalKB = Math.round(dataUri.length * 3 / 4 / 1024);
+        const compressedKB = Math.round(compressed.length * 3 / 4 / 1024);
+        console.log(`📸 图片压缩: ${originalKB}KB → ${compressedKB}KB (${Math.round(compressedKB / originalKB * 100)}%)`);
+        resolve(compressed);
+      };
+      img.onerror = () => resolve(dataUri); // 压缩失败则使用原图
+      img.src = dataUri;
+    });
+  };
+
   // 尝试启动相机流
   const startCamera = async () => {
     // 移动端优先使用原生相机
@@ -89,7 +125,8 @@ export default function CreateProduct() {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0);
 
-    const imageData = canvas.toDataURL('image/jpeg', 0.8);
+    const rawImage = canvas.toDataURL('image/jpeg', 0.8);
+    const imageData = await compressImage(rawImage);
     setImage(imageData);
     stopCamera();
     await analyzePhoto(imageData);
@@ -102,7 +139,8 @@ export default function CreateProduct() {
 
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const imageData = event.target.result;
+      const rawImage = event.target.result;
+      const imageData = await compressImage(rawImage);
       setImage(imageData);
       await analyzePhoto(imageData);
     };
