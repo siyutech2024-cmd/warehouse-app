@@ -1,6 +1,5 @@
 import { store } from "./store";
 import ExcelJS from "exceljs";
-import { saveAs } from "file-saver";
 import i18n from "./i18n";
 
 // Google Gemini API Key（从环境变量读取，避免泄露）
@@ -231,70 +230,139 @@ export async function exportExcel(data, filters = {}) {
   };
   headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
-  // 添加数据和图片
-  for (let i = 0; i < filteredData.length; i++) {
-    const item = filteredData[i];
-    const rowIndex = i + 2; // 第一行是表头
+  // 辅助函数：从 data URI 中检测 ExcelJS 支持的图片扩展名
+  const getSupportedImageExtension = (dataUri) => {
+    if (!dataUri || !dataUri.startsWith('data:image/')) return null;
+    const mimeMatch = dataUri.match(/^data:image\/([\w+]+);/);
+    if (!mimeMatch) return null;
+    const mime = mimeMatch[1].toLowerCase();
+    // ExcelJS 只支持 png, jpeg, gif
+    if (mime === 'png') return 'png';
+    if (mime === 'jpeg' || mime === 'jpg') return 'jpeg';
+    if (mime === 'gif') return 'gif';
+    // webp, svg, bmp 等不受支持
+    console.warn(`⚠️ Unsupported image format: ${mime}, skipping image`);
+    return null;
+  };
 
-    const row = worksheet.addRow({
-      no: i + 1,
-      image: '', // 图片列占位
-      name: item.name || '',
-      description: item.description || '',
-      category: item.category || 'Sin categoría',
-      originalPrice: item.originalPrice || 0,
-      discountPrice: item.discountPrice || 0,
-      stock: item.stock || 0,
-      createdBy: item.createdBy || '-',
-      createdAt: item.createdAt ? new Date(item.createdAt).toLocaleString('es-ES') : '-'
-    });
+  // 内部函数：填充工作表数据（可选是否包含图片）
+  const fillWorksheet = (ws, wb, data, includeImages) => {
+    for (let i = 0; i < data.length; i++) {
+      const item = data[i];
+      const rowIndex = i + 2; // 第一行是表头
 
-    row.height = 60;
-    row.alignment = { vertical: 'middle', wrapText: true };
+      const row = ws.addRow({
+        no: i + 1,
+        image: '', // 图片列占位
+        name: item.name || '',
+        description: item.description || '',
+        category: item.category || 'Sin categoría',
+        originalPrice: item.originalPrice || 0,
+        discountPrice: item.discountPrice || 0,
+        stock: item.stock || 0,
+        createdBy: item.createdBy || '-',
+        createdAt: item.createdAt ? new Date(item.createdAt).toLocaleString('es-ES') : '-'
+      });
 
-    // 嵌入产品图片
-    if (item.image && item.image.startsWith('data:')) {
-      try {
-        // 从 data URI 中提取 base64 数据
-        const base64Data = item.image.split(',')[1];
-        const extension = item.image.includes('png') ? 'png' : 'jpeg';
+      row.height = 60;
+      row.alignment = { vertical: 'middle', wrapText: true };
 
-        const imageId = workbook.addImage({
-          base64: base64Data,
-          extension: extension,
-        });
-
-        worksheet.addImage(imageId, {
-          tl: { col: 1, row: rowIndex - 1 }, // 图片左上角
-          ext: { width: 80, height: 55 } // 图片尺寸(像素)
-        });
-      } catch (imgError) {
-        console.warn(`⚠️ Could not embed image for row ${rowIndex}:`, imgError);
-        // 图片嵌入失败时在单元格显示文字
-        row.getCell('image').value = '(imagen no disponible)';
+      // 嵌入产品图片（仅当 includeImages 为 true 时）
+      if (includeImages && item.image && item.image.startsWith('data:')) {
+        const extension = getSupportedImageExtension(item.image);
+        if (extension) {
+          try {
+            const base64Data = item.image.split(',')[1];
+            const imageId = wb.addImage({
+              base64: base64Data,
+              extension: extension,
+            });
+            ws.addImage(imageId, {
+              tl: { col: 1, row: rowIndex - 1 },
+              ext: { width: 80, height: 55 }
+            });
+          } catch (imgError) {
+            console.warn(`⚠️ Could not embed image for row ${rowIndex}:`, imgError);
+            row.getCell('image').value = '(imagen no disponible)';
+          }
+        } else {
+          row.getCell('image').value = '(formato no soportado)';
+        }
+      } else {
+        row.getCell('image').value = includeImages ? '(sin imagen)' : '-';
       }
-    } else {
-      row.getCell('image').value = '(sin imagen)';
     }
+
+    // 添加边框样式
+    ws.eachRow((row, rowNumber) => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+          left: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+          bottom: { style: 'thin', color: { argb: 'FFD0D0D0' } },
+          right: { style: 'thin', color: { argb: 'FFD0D0D0' } }
+        };
+      });
+    });
+  };
+
+  // 检查数据中是否有任何支持的图片
+  const hasAnyImages = filteredData.some(item =>
+    item.image && item.image.startsWith('data:') && getSupportedImageExtension(item.image)
+  );
+
+  // 填充数据
+  fillWorksheet(worksheet, workbook, filteredData, hasAnyImages);
+
+  // 生成并下载（如果图片导致失败，自动重试不含图片版本）
+  let buffer;
+  try {
+    buffer = await workbook.xlsx.writeBuffer();
+  } catch (writeError) {
+    console.warn('⚠️ Excel generation with images failed, retrying without images:', writeError.message);
+    // 重新创建不含图片的工作簿
+    const wb2 = new ExcelJS.Workbook();
+    wb2.creator = 'Warehouse App';
+    wb2.created = new Date();
+    const ws2 = wb2.addWorksheet('Inventario', {
+      properties: { defaultRowHeight: 60 }
+    });
+    ws2.columns = [
+      { header: 'No.', key: 'no', width: 6 },
+      { header: 'Imagen', key: 'image', width: 15 },
+      { header: 'Producto', key: 'name', width: 30 },
+      { header: 'Descripción', key: 'description', width: 40 },
+      { header: 'Categoría', key: 'category', width: 14 },
+      { header: 'Precio Original', key: 'originalPrice', width: 14 },
+      { header: 'Precio Descuento', key: 'discountPrice', width: 14 },
+      { header: 'Stock', key: 'stock', width: 8 },
+      { header: 'Creador', key: 'createdBy', width: 12 },
+      { header: 'Fecha', key: 'createdAt', width: 20 }
+    ];
+    const headerRow2 = ws2.getRow(1);
+    headerRow2.height = 25;
+    headerRow2.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    headerRow2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+    headerRow2.alignment = { vertical: 'middle', horizontal: 'center' };
+    fillWorksheet(ws2, wb2, filteredData, false);
+    buffer = await wb2.xlsx.writeBuffer();
   }
 
-  // 添加边框样式
-  worksheet.eachRow((row, rowNumber) => {
-    row.eachCell((cell) => {
-      cell.border = {
-        top: { style: 'thin', color: { argb: 'FFD0D0D0' } },
-        left: { style: 'thin', color: { argb: 'FFD0D0D0' } },
-        bottom: { style: 'thin', color: { argb: 'FFD0D0D0' } },
-        right: { style: 'thin', color: { argb: 'FFD0D0D0' } }
-      };
-    });
-  });
-
-  // 生成并下载
-  const buffer = await workbook.xlsx.writeBuffer();
-  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const fileName = `Inventario_${new Date().toLocaleDateString('es-ES').replace(/\//g, '-')}.xlsx`;
-  saveAs(blob, fileName);
+  // 使用 File 对象（而非 Blob），Safari 会从 File 名称读取文件名
+  const file = new File([buffer], fileName, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  // 延迟清理，确保浏览器有时间处理下载
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 1000);
 
   return filteredData.length;
 }

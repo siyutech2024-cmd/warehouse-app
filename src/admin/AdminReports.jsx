@@ -5,6 +5,8 @@ export default function AdminReports() {
     const [inventory, setInventory] = useState([]);
     const [dateRange, setDateRange] = useState('week');
     const [isLoading, setIsLoading] = useState(true);
+    const [exporting, setExporting] = useState(false);
+    const [showExportMenu, setShowExportMenu] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -120,12 +122,54 @@ export default function AdminReports() {
                     </div>
                 </div>
                 <div className="toolbar-right">
-                    <button className="btn btn-primary btn-sm" onClick={async () => {
-                        const dataWithImages = await fetchInventoryWithImages();
-                        await exportExcel(dataWithImages);
-                    }}>
-                        📥 导出完整报表
-                    </button>
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => !exporting && setShowExportMenu(prev => !prev)}
+                            disabled={exporting}
+                        >
+                            {exporting ? '⏳ Exportando...' : '📥 导出报表'}
+                        </button>
+                        {showExportMenu && !exporting && (
+                            <div style={{
+                                position: 'absolute', right: 0, top: '100%', marginTop: 4,
+                                background: 'var(--card-bg, #fff)', borderRadius: 8,
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.15)', zIndex: 100,
+                                minWidth: 220, overflow: 'hidden', border: '1px solid var(--border, #e0e0e0)'
+                            }}>
+                                <button
+                                    style={{ display: 'block', width: '100%', padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontSize: '0.9rem', borderBottom: '1px solid var(--border, #e0e0e0)' }}
+                                    onMouseEnter={e => e.target.style.background = 'var(--hover-bg, #f5f5f5)'}
+                                    onMouseLeave={e => e.target.style.background = 'none'}
+                                    onClick={async () => {
+                                        setShowExportMenu(false);
+                                        setExporting(true);
+                                        try { await exportExcel(inventory); } catch (err) { alert('Error: ' + err.message); } finally { setExporting(false); }
+                                    }}
+                                >
+                                    <div style={{ fontWeight: 600 }}>⚡ 快速导出</div>
+                                    <div style={{ fontSize: '0.78rem', color: '#888', marginTop: 2 }}>不含图片 · 即时</div>
+                                </button>
+                                <button
+                                    style={{ display: 'block', width: '100%', padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontSize: '0.9rem' }}
+                                    onMouseEnter={e => e.target.style.background = 'var(--hover-bg, #f5f5f5)'}
+                                    onMouseLeave={e => e.target.style.background = 'none'}
+                                    onClick={async () => {
+                                        setShowExportMenu(false);
+                                        setExporting(true);
+                                        try {
+                                            let data;
+                                            try { data = await fetchInventoryWithImages(); } catch { data = inventory; }
+                                            await exportExcel(data || inventory);
+                                        } catch (err) { alert('Error: ' + err.message); } finally { setExporting(false); }
+                                    }}
+                                >
+                                    <div style={{ fontWeight: 600 }}>🖼️ 含图片导出</div>
+                                    <div style={{ fontSize: '0.78rem', color: '#888', marginTop: 2 }}>包含产品图片 · 约1分钟</div>
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 

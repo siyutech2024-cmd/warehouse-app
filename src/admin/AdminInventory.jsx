@@ -52,6 +52,8 @@ export default function AdminInventory() {
     const [selectedItems, setSelectedItems] = useState([]);
     const [editingStock, setEditingStock] = useState(null);
     const [editingPrice, setEditingPrice] = useState(null);
+    const [exporting, setExporting] = useState(false);
+    const [showExportMenu, setShowExportMenu] = useState(false);
 
     useEffect(() => {
         loadInventory();
@@ -186,16 +188,93 @@ export default function AdminInventory() {
                             🗑️ {t.delete} ({selectedItems.length})
                         </button>
                     )}
-                    <button
-                        className="btn btn-primary btn-sm"
-                        onClick={async () => {
-                            const dataWithImages = await fetchInventoryWithImages();
-                            await exportExcel(dataWithImages);
-                        }}
-                        disabled={filteredList.length === 0}
-                    >
-                        📥 {t.exportExcel}
-                    </button>
+                    <div className="export-dropdown" style={{ position: 'relative', display: 'inline-block' }}>
+                        <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => {
+                                if (!exporting) {
+                                    setShowExportMenu(prev => !prev);
+                                }
+                            }}
+                            disabled={filteredList.length === 0 || exporting}
+                        >
+                            {exporting ? '⏳ Exportando...' : `📥 ${t.exportExcel}`}
+                        </button>
+                        {showExportMenu && !exporting && (
+                            <div className="export-menu" style={{
+                                position: 'absolute', right: 0, top: '100%', marginTop: 4,
+                                background: 'var(--card-bg, #fff)', borderRadius: 8,
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.15)', zIndex: 100,
+                                minWidth: 220, overflow: 'hidden', border: '1px solid var(--border, #e0e0e0)'
+                            }}>
+                                <button
+                                    className="export-menu-item"
+                                    style={{
+                                        display: 'block', width: '100%', padding: '12px 16px',
+                                        border: 'none', background: 'none', cursor: 'pointer',
+                                        textAlign: 'left', fontSize: '0.9rem',
+                                        borderBottom: '1px solid var(--border, #e0e0e0)'
+                                    }}
+                                    onMouseEnter={e => e.target.style.background = 'var(--hover-bg, #f5f5f5)'}
+                                    onMouseLeave={e => e.target.style.background = 'none'}
+                                    onClick={async () => {
+                                        setShowExportMenu(false);
+                                        setExporting(true);
+                                        try {
+                                            await exportExcel(filteredList);
+                                        } catch (err) {
+                                            console.error('❌ Error:', err);
+                                            alert('Error al exportar: ' + err.message);
+                                        } finally {
+                                            setExporting(false);
+                                        }
+                                    }}
+                                >
+                                    <div style={{ fontWeight: 600 }}>⚡ Exportar rápido</div>
+                                    <div style={{ fontSize: '0.78rem', color: 'var(--gray-500, #888)', marginTop: 2 }}>
+                                        Sin imágenes · Instantáneo
+                                    </div>
+                                </button>
+                                <button
+                                    className="export-menu-item"
+                                    style={{
+                                        display: 'block', width: '100%', padding: '12px 16px',
+                                        border: 'none', background: 'none', cursor: 'pointer',
+                                        textAlign: 'left', fontSize: '0.9rem'
+                                    }}
+                                    onMouseEnter={e => e.target.style.background = 'var(--hover-bg, #f5f5f5)'}
+                                    onMouseLeave={e => e.target.style.background = 'none'}
+                                    onClick={async () => {
+                                        setShowExportMenu(false);
+                                        setExporting(true);
+                                        try {
+                                            let dataToExport;
+                                            try {
+                                                dataToExport = await fetchInventoryWithImages();
+                                            } catch (imgErr) {
+                                                console.warn('⚠️ Fallback sin imágenes:', imgErr);
+                                                dataToExport = filteredList;
+                                            }
+                                            if (!dataToExport || dataToExport.length === 0) {
+                                                dataToExport = filteredList;
+                                            }
+                                            await exportExcel(dataToExport);
+                                        } catch (err) {
+                                            console.error('❌ Error:', err);
+                                            alert('Error al exportar: ' + err.message);
+                                        } finally {
+                                            setExporting(false);
+                                        }
+                                    }}
+                                >
+                                    <div style={{ fontWeight: 600 }}>🖼️ Exportar con imágenes</div>
+                                    <div style={{ fontSize: '0.78rem', color: 'var(--gray-500, #888)', marginTop: 2 }}>
+                                        Incluye fotos · Puede tardar 1 min
+                                    </div>
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
