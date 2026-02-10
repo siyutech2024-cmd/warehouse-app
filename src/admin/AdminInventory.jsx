@@ -53,6 +53,7 @@ export default function AdminInventory() {
     const [editingStock, setEditingStock] = useState(null);
     const [editingPrice, setEditingPrice] = useState(null);
     const [exporting, setExporting] = useState(false);
+    const [exportProgress, setExportProgress] = useState('');
     const [showExportMenu, setShowExportMenu] = useState(false);
 
     useEffect(() => {
@@ -198,7 +199,7 @@ export default function AdminInventory() {
                             }}
                             disabled={filteredList.length === 0 || exporting}
                         >
-                            {exporting ? '⏳ Exportando...' : `📥 ${t.exportExcel}`}
+                            {exporting ? `⏳ ${exportProgress || 'Exportando...'}` : `📥 ${t.exportExcel}`}
                         </button>
                         {showExportMenu && !exporting && (
                             <div className="export-menu" style={{
@@ -247,10 +248,13 @@ export default function AdminInventory() {
                                     onClick={async () => {
                                         setShowExportMenu(false);
                                         setExporting(true);
+                                        setExportProgress('Cargando imágenes...');
                                         try {
                                             let dataToExport;
                                             try {
-                                                dataToExport = await fetchInventoryWithImages();
+                                                dataToExport = await fetchInventoryWithImages((pct, done, total) => {
+                                                    setExportProgress(`${pct}% (${done}/${total})`);
+                                                });
                                             } catch (imgErr) {
                                                 console.warn('⚠️ Fallback sin imágenes:', imgErr);
                                                 dataToExport = filteredList;
@@ -258,12 +262,14 @@ export default function AdminInventory() {
                                             if (!dataToExport || dataToExport.length === 0) {
                                                 dataToExport = filteredList;
                                             }
+                                            setExportProgress('Generando Excel...');
                                             await exportExcel(dataToExport);
                                         } catch (err) {
                                             console.error('❌ Error:', err);
                                             alert('Error al exportar: ' + err.message);
                                         } finally {
                                             setExporting(false);
+                                            setExportProgress('');
                                         }
                                     }}
                                 >

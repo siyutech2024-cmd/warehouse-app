@@ -142,8 +142,8 @@ export async function fetchMyInventory(username) {
 }
 
 // 获取含图片的完整数据（仅导出 Excel 时使用）
-export async function fetchInventoryWithImages() {
-  return await store.getInventoryWithImages();
+export async function fetchInventoryWithImages(onProgress) {
+  return await store.getInventoryWithImages(onProgress);
 }
 
 // 获取单个产品图片（懒加载缩略图用）

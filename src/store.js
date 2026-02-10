@@ -149,19 +149,23 @@ const supabaseStore = {
   },
 
   // 获取含图片的完整数据（仅导出 Excel 时使用）
-  async getInventoryWithImages() {
+  // 分批获取图片，避免 Supabase 超时
+  async getInventoryWithImages(onProgress) {
     if (isSupabaseEnabled) {
-      const { data, error } = await supabase
+      // 第一步：获取所有产品元数据（不含图片，很快）
+      const { data: products, error } = await supabase
         .from('products')
-        .select('*')
+        .select('id, name, description, category, barcode, original_price, discount_price, stock, created_by, created_by_role, created_at')
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('获取库存(含图片)失败:', error);
+        console.error('获取库存失败:', error);
         return [];
       }
 
-      return data.map(item => ({
+      // 第二步：分批获取图片（每批5个，避免超时）
+      const BATCH_SIZE = 5;
+      const results = products.map(item => ({
         id: item.id,
         name: item.name,
         description: item.description,
@@ -170,11 +174,40 @@ const supabaseStore = {
         originalPrice: item.original_price,
         discountPrice: item.discount_price,
         stock: item.stock,
-        image: item.image,
+        image: null,
         createdBy: item.created_by,
         createdByRole: item.created_by_role,
         createdAt: item.created_at
       }));
+
+      const totalBatches = Math.ceil(results.length / BATCH_SIZE);
+      for (let batch = 0; batch < totalBatches; batch++) {
+        const start = batch * BATCH_SIZE;
+        const end = Math.min(start + BATCH_SIZE, results.length);
+        const batchIds = results.slice(start, end).map(r => r.id);
+
+        if (onProgress) {
+          onProgress(Math.round(((batch + 1) / totalBatches) * 100), end, results.length);
+        }
+
+        try {
+          const { data: imgData, error: imgError } = await supabase
+            .from('products')
+            .select('id, image')
+            .in('id', batchIds);
+
+          if (!imgError && imgData) {
+            const imgMap = new Map(imgData.map(d => [d.id, d.image]));
+            for (let i = start; i < end; i++) {
+              results[i].image = imgMap.get(results[i].id) || null;
+            }
+          }
+        } catch (batchErr) {
+          console.warn(`⚠️ 批次 ${batch + 1}/${totalBatches} 图片获取失败:`, batchErr);
+        }
+      }
+
+      return results;
     }
     return [];
   },
