@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { store } from "../store";
 
 export default function AdminSettings() {
     const [settings, setSettings] = useState({
@@ -9,6 +10,9 @@ export default function AdminSettings() {
     });
     const [newCategory, setNewCategory] = useState('');
     const [saved, setSaved] = useState(false);
+    const [compressing, setCompressing] = useState(false);
+    const [compressProgress, setCompressProgress] = useState('');
+    const [compressResult, setCompressResult] = useState(null);
 
     useEffect(() => {
         loadSettings();
@@ -47,6 +51,26 @@ export default function AdminSettings() {
         });
     };
 
+    const handleCompressAll = async () => {
+        if (!confirm('¿Comprimir todas las imágenes? Este proceso puede tardar varios minutos.')) return;
+        setCompressing(true);
+        setCompressResult(null);
+        setCompressProgress('Iniciando...');
+
+        try {
+            const result = await store.compressAllImages((current, total, name, stats) => {
+                setCompressProgress(`${current}/${total} — ${name} (✅${stats.compressed} ⏭${stats.skipped} ❌${stats.failed})`);
+            });
+            setCompressResult(result);
+            setCompressProgress('');
+        } catch (err) {
+            console.error('压缩失败:', err);
+            setCompressProgress('❌ Error: ' + err.message);
+        } finally {
+            setCompressing(false);
+        }
+    };
+
     return (
         <div className="admin-page">
             <div className="admin-header">
@@ -59,6 +83,47 @@ export default function AdminSettings() {
                     ✅ 设置已保存
                 </div>
             )}
+
+            {/* 图片压缩工具 */}
+            <div className="admin-card">
+                <div className="admin-card-header">
+                    <h2>🖼️ Compresión de Imágenes</h2>
+                </div>
+                <div className="admin-card-body">
+                    <p style={{ fontSize: '0.88rem', color: 'var(--gray-600, #666)', marginBottom: 16 }}>
+                        Comprime todas las imágenes en la base de datos para acelerar la exportación de Excel.
+                        Las imágenes se redimensionarán a máx. 600px y calidad JPEG 50%.
+                    </p>
+                    <button
+                        className="btn btn-primary"
+                        onClick={handleCompressAll}
+                        disabled={compressing}
+                        style={{ minWidth: 220 }}
+                    >
+                        {compressing ? '⏳ Comprimiendo...' : '🗜️ Comprimir todas las imágenes'}
+                    </button>
+
+                    {compressing && compressProgress && (
+                        <div style={{
+                            marginTop: 12, padding: '10px 14px', borderRadius: 8,
+                            background: 'var(--bg-secondary, #f0f4ff)', fontSize: '0.85rem',
+                            fontFamily: 'monospace', wordBreak: 'break-all'
+                        }}>
+                            {compressProgress}
+                        </div>
+                    )}
+
+                    {compressResult && (
+                        <div className="alert alert-success" style={{ marginTop: 12 }}>
+                            <strong>✅ Compresión completada</strong><br />
+                            Total: {compressResult.total} productos<br />
+                            Comprimidos: {compressResult.compressed} ·
+                            Omitidos: {compressResult.skipped} ·
+                            Fallidos: {compressResult.failed}
+                        </div>
+                    )}
+                </div>
+            </div>
 
             {/* 折扣设置 */}
             <div className="admin-card">

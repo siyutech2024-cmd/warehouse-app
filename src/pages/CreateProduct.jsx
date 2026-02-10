@@ -34,9 +34,9 @@ export default function CreateProduct() {
     };
   }, []);
 
-  // 图片压缩：限制最大尺寸 800px，JPEG 质量 0.6
-  // 可将 3-5MB 的图片压缩到 50-150KB
-  const compressImage = (dataUri, maxSize = 800, quality = 0.6) => {
+  // 图片压缩：限制最大尺寸 600px，JPEG 质量 0.5
+  // 可将 3-5MB 的图片压缩到 30-80KB
+  const compressImage = (dataUri, maxSize = 600, quality = 0.5) => {
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {

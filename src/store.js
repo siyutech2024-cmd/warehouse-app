@@ -227,6 +227,117 @@ const supabaseStore = {
     return null;
   },
 
+  // 批量压缩所有产品图片（管理员工具）
+  // 逐个获取图片 → canvas 压缩 → 写回数据库
+  async compressAllImages(onProgress) {
+    if (!isSupabaseEnabled) return { total: 0, compressed: 0, skipped: 0, failed: 0 };
+
+    // 第一步：获取所有产品 ID
+    const { data: products, error } = await supabase
+      .from('products')
+      .select('id, name')
+      .order('created_at', { ascending: false });
+
+    if (error || !products) {
+      console.error('获取产品列表失败:', error);
+      return { total: 0, compressed: 0, skipped: 0, failed: 0 };
+    }
+
+    const MAX_SIZE = 600;   // 最大边长 600px（极致压缩）
+    const QUALITY = 0.5;    // JPEG 质量 50%
+    const SIZE_THRESHOLD = 100 * 1024; // 小于 100KB 的跳过（已经够小了）
+
+    let compressed = 0, skipped = 0, failed = 0;
+    const total = products.length;
+
+    // 客户端 canvas 压缩函数
+    const compressDataUri = (dataUri) => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let { width, height } = img;
+
+          if (width > MAX_SIZE || height > MAX_SIZE) {
+            if (width > height) {
+              height = Math.round(height * (MAX_SIZE / width));
+              width = MAX_SIZE;
+            } else {
+              width = Math.round(width * (MAX_SIZE / height));
+              height = MAX_SIZE;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', QUALITY));
+        };
+        img.onerror = () => reject(new Error('图片加载失败'));
+        img.src = dataUri;
+      });
+    };
+
+    // 第二步：逐个处理
+    for (let i = 0; i < total; i++) {
+      const product = products[i];
+      if (onProgress) {
+        onProgress(i + 1, total, product.name, { compressed, skipped, failed });
+      }
+
+      try {
+        // 获取单张图片
+        const { data: imgData, error: imgErr } = await supabase
+          .from('products')
+          .select('image')
+          .eq('id', product.id)
+          .single();
+
+        if (imgErr || !imgData?.image) {
+          skipped++;
+          continue;
+        }
+
+        const originalImage = imgData.image;
+
+        // 检查是否已经足够小
+        const originalSizeBytes = Math.round(originalImage.length * 3 / 4);
+        if (originalSizeBytes < SIZE_THRESHOLD) {
+          skipped++;
+          continue;
+        }
+
+        // 压缩
+        const compressedImage = await compressDataUri(originalImage);
+
+        // 只有确实变小了才更新
+        if (compressedImage.length < originalImage.length) {
+          const { error: updateErr } = await supabase
+            .from('products')
+            .update({ image: compressedImage })
+            .eq('id', product.id);
+
+          if (updateErr) {
+            console.warn(`⚠️ 更新 ${product.name} 失败:`, updateErr);
+            failed++;
+          } else {
+            const savedKB = Math.round((originalImage.length - compressedImage.length) * 3 / 4 / 1024);
+            console.log(`✅ ${product.name}: 节省 ${savedKB}KB`);
+            compressed++;
+          }
+        } else {
+          skipped++;
+        }
+      } catch (err) {
+        console.warn(`❌ 处理 ${product.name} 失败:`, err);
+        failed++;
+      }
+    }
+
+    return { total, compressed, skipped, failed };
+  },
+
   async updateStock(id, stock) {
     if (isSupabaseEnabled) {
       const { error } = await supabase
