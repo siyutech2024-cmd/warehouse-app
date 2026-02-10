@@ -149,7 +149,7 @@ const supabaseStore = {
   },
 
   // 获取含图片的完整数据（仅导出 Excel 时使用）
-  // 分批获取图片，避免 Supabase 超时
+  // 分批获取图片，失败自动重试 + 逐个降级
   async getInventoryWithImages(onProgress) {
     if (isSupabaseEnabled) {
       // 第一步：获取所有产品元数据（不含图片，很快）
@@ -163,8 +163,7 @@ const supabaseStore = {
         return [];
       }
 
-      // 第二步：分批获取图片（每批5个，避免超时）
-      const BATCH_SIZE = 5;
+      // 映射结果
       const results = products.map(item => ({
         id: item.id,
         name: item.name,
@@ -180,30 +179,70 @@ const supabaseStore = {
         createdAt: item.created_at
       }));
 
+      // 创建 id → index 映射
+      const idToIndex = new Map(results.map((r, i) => [r.id, i]));
+
+      // 第二步：分批获取图片（每批3个，减少超时风险）
+      const BATCH_SIZE = 3;
+      let fetchedCount = 0;
+
+      const fetchBatchImages = async (ids) => {
+        const { data: imgData, error: imgError } = await supabase
+          .from('products')
+          .select('id, image')
+          .in('id', ids);
+
+        if (imgError) throw imgError;
+        if (imgData) {
+          for (const d of imgData) {
+            const idx = idToIndex.get(d.id);
+            if (idx !== undefined && d.image) {
+              results[idx].image = d.image;
+            }
+          }
+        }
+      };
+
+      // 逐个获取单张图片（降级方案）
+      const fetchSingleImage = async (id) => {
+        try {
+          const { data, error: err } = await supabase
+            .from('products')
+            .select('image')
+            .eq('id', id)
+            .single();
+
+          if (!err && data?.image) {
+            const idx = idToIndex.get(id);
+            if (idx !== undefined) {
+              results[idx].image = data.image;
+            }
+          }
+        } catch (e) {
+          // 单个也失败了，放弃
+        }
+      };
+
       const totalBatches = Math.ceil(results.length / BATCH_SIZE);
       for (let batch = 0; batch < totalBatches; batch++) {
         const start = batch * BATCH_SIZE;
         const end = Math.min(start + BATCH_SIZE, results.length);
         const batchIds = results.slice(start, end).map(r => r.id);
 
+        fetchedCount = end;
         if (onProgress) {
-          onProgress(Math.round(((batch + 1) / totalBatches) * 100), end, results.length);
+          onProgress(Math.round((fetchedCount / results.length) * 100), fetchedCount, results.length);
         }
 
         try {
-          const { data: imgData, error: imgError } = await supabase
-            .from('products')
-            .select('id, image')
-            .in('id', batchIds);
-
-          if (!imgError && imgData) {
-            const imgMap = new Map(imgData.map(d => [d.id, d.image]));
-            for (let i = start; i < end; i++) {
-              results[i].image = imgMap.get(results[i].id) || null;
-            }
-          }
+          // 第一次尝试：批量获取
+          await fetchBatchImages(batchIds);
         } catch (batchErr) {
-          console.warn(`⚠️ 批次 ${batch + 1}/${totalBatches} 图片获取失败:`, batchErr);
+          console.warn(`⚠️ 批次 ${batch + 1}/${totalBatches} 失败，逐个重试...`);
+          // 降级：逐个获取
+          for (const id of batchIds) {
+            await fetchSingleImage(id);
+          }
         }
       }
 
